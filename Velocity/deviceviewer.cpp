@@ -4,9 +4,8 @@
 #include <QDebug>
 
 DeviceViewer::DeviceViewer(QStatusBar *statusBar, QList<QAction *> gpdActions, QList<QAction *> gameActions, QWidget *parent) :
-    QDialog(parent), ui(new Ui::DeviceViewer), currentDrive(NULL), parentEntry(NULL),
-    gpdActions(gpdActions), gameActions(gameActions), statusBar(statusBar), drivesLoaded(false)
-  {
+    QDialog(parent), ui(new Ui::DeviceViewer), parentEntry(NULL), statusBar(statusBar), currentDrive(NULL), drivesLoaded(false), gpdActions(gpdActions), gameActions(gameActions)
+{
     ui->setupUi(this);
 
     ui->splitter->setStretchFactor(0, 1);
@@ -37,7 +36,7 @@ DeviceViewer::DeviceViewer(QStatusBar *statusBar, QList<QAction *> gpdActions, Q
 
 DeviceViewer::~DeviceViewer()
 {
-    for (size_t i = 0; i < loadedDrives.size(); i++)
+    for (int i = 0; i < loadedDrives.size(); i++)
         delete loadedDrives.at(i);
 
     delete ui;
@@ -45,6 +44,9 @@ DeviceViewer::~DeviceViewer()
 
 void DeviceViewer::DrawMemoryGraph()
 {
+    UINT64 totalFreeSpace = 0;
+    UINT64 totalSpace = 0;
+
     if (!drivesLoaded)
     {
         progressBar->setVisible(true);
@@ -52,8 +54,47 @@ void DeviceViewer::DrawMemoryGraph()
         progressBar->setMaximum(0);
     }
 
-    QtHelpers::DrawFreeMemoryGraph(currentDrive, ui->imgPiechart, ui->imgPiechart->palette().background().color(),
-                                   ui->imgFreeMem, ui->lblFeeMemory, ui->imgUsedMem, ui->lblUsedSpace, false, updateUI);
+    // load the partion information
+    std::vector<Partition*> parts = currentDrive->GetPartitions();
+    for (DWORD i = 0; i < parts.size(); i++)
+    {
+        totalFreeSpace += currentDrive->GetFreeMemory(parts.at(i), updateUI);
+        totalSpace += (UINT64)parts.at(i)->clusterCount * parts.at(i)->clusterSize;
+    }
+
+    if (!drivesLoaded)
+    {
+        progressBar->setMaximum(1);
+        progressBar->setVisible(false);
+    }
+
+    // calculate the percentage
+    float freeMemPercentage = (((float)totalFreeSpace * 100.0) / totalSpace);
+
+    // draw the insano piechart
+    QPixmap chart(750, 500);
+    chart.fill(ui->imgPiechart->palette().background().color());
+    QPainter painter(&chart);
+    Nightcharts pieChart;
+    pieChart.setType(Nightcharts::Dpie);
+    pieChart.setCords(25, 1, 700, 425);
+    pieChart.setFont(QFont());
+    pieChart.addPiece("Used Space", QColor(0, 0, 254), 100.0 - freeMemPercentage);
+    pieChart.addPiece("Free Space", QColor(255, 0, 254), freeMemPercentage);
+    pieChart.draw(&painter);
+
+    ui->imgPiechart->setPixmap(chart);
+
+    // setup the legend
+    QPixmap freeMemClr(16, 16);
+    freeMemClr.fill(QColor(255, 0, 254));
+    ui->imgFreeMem->setPixmap(freeMemClr);
+    ui->lblFeeMemory->setText(QString::fromStdString(ByteSizeToString(totalFreeSpace)) + " of Free Space");
+
+    QPixmap usedMemClr(16, 16);
+    usedMemClr.fill(QColor(0, 0, 254));
+    ui->imgUsedMem->setPixmap(usedMemClr);
+    ui->lblUsedSpace->setText(QString::fromStdString(ByteSizeToString(totalSpace - totalFreeSpace)) + " of Used Space");
 }
 
 void DeviceViewer::showContextMenu(QPoint point)
@@ -123,12 +164,8 @@ void DeviceViewer::showContextMenu(QPoint point)
             if (path.isEmpty())
                 return;
 
-            QStringList rootPaths;
-            QString rootPath = QString::fromStdString(directoryChain.last()->path + directoryChain.last()->name + "\\");
-            rootPaths.push_back(rootPath);
-
             // save the file to the local disk
-            MultiProgressDialog *dialog = new MultiProgressDialog(OpExtract, FileSystemFATX, currentDrive, path + "/", filesToExtract, this, rootPaths);
+            MultiProgressDialog *dialog = new MultiProgressDialog(OpExtract, FileSystemFATX, currentDrive, path + "/", filesToExtract, this, QString::fromStdString(directoryChain.last()->path + directoryChain.last()->name + "\\"));
             dialog->setModal(true);
             dialog->show();
             dialog->start();
@@ -143,13 +180,12 @@ void DeviceViewer::showContextMenu(QPoint point)
         }
         else if (selectedItem->text() == "Copy File(s) Here")
         {
-            QStringList toInjectPaths = QFileDialog::getOpenFileNames(this, "Choose file(s) to copy...",
-                    QtHelpers::DesktopLocation());
+            QStringList toInjectPaths = QFileDialog::getOpenFileNames(this);
             if (toInjectPaths.size() == 0)
                 return;
 
             QList<void*> files;
-            for (int i = 0; i < toInjectPaths.size(); i++)
+            for (DWORD i = 0; i < toInjectPaths.size(); i++)
                 files.push_back(const_cast<void*>((void*)&toInjectPaths.at(i)));
 
             InjectFiles(files, "");
@@ -266,7 +302,7 @@ void DeviceViewer::showContextMenu(QPoint point)
 
 void DeviceViewer::InjectFiles(QList<void*> files, QString rootPath)
 {
-    MultiProgressDialog *dialog = new MultiProgressDialog(OpInject, FileSystemFATX, currentDrive, "", files, this, QStringList(rootPath), parentEntry);
+    MultiProgressDialog *dialog = new MultiProgressDialog(OpInject, FileSystemFATX, currentDrive, "", files, this, rootPath, parentEntry);
     dialog->setModal(true);
     dialog->show();
     dialog->start();
@@ -293,7 +329,7 @@ void DeviceViewer::LoadDrives()
     // clear all the items
     ui->treeWidget->clear();
 
-    for (size_t i = 0; i < loadedDrives.size(); i++)
+    for (int i = 0; i < loadedDrives.size(); i++)
         delete loadedDrives.at(i);
 
     try
@@ -305,7 +341,7 @@ void DeviceViewer::LoadDrives()
             return;
         }
 
-        for (size_t i = 0; i < loadedDrives.size(); i++)
+        for (int i = 0; i < loadedDrives.size(); i++)
         {
             QTreeWidgetItem *driveItem = new QTreeWidgetItem(ui->treeWidget_2);
             driveItem->setData(0, Qt::UserRole, QVariant::fromValue(loadedDrives.at(i)));
@@ -323,13 +359,13 @@ void DeviceViewer::LoadDrives()
 
             // load the partion information
             std::vector<Partition*> parts = loadedDrives.at(i)->GetPartitions();
-            for (size_t j = 0; j < parts.size(); j++)
+            for (DWORD i = 0; i < parts.size(); i++)
             {
                 QTreeWidgetItem *secondItem = new QTreeWidgetItem(driveItem);
-                secondItem->setText(0, QString::fromStdString(parts.at(j)->name));
+                secondItem->setText(0, QString::fromStdString(parts.at(i)->name));
                 secondItem->setIcon(0, QIcon(":/Images/partition.png"));
                 secondItem->setChildIndicatorPolicy(QTreeWidgetItem::ShowIndicator);
-                secondItem->setData(0, Qt::UserRole, QVariant::fromValue(parts.at(j)));
+                secondItem->setData(0, Qt::UserRole, QVariant::fromValue(parts.at(i)));
                 secondItem->setData(5, Qt::UserRole, QVariant::fromValue(true));
                 secondItem->setData(4, Qt::UserRole, QVariant::fromValue(-1));
             }
@@ -395,8 +431,7 @@ void DeviceViewer::on_treeWidget_doubleClicked(const QModelIndex &index)
         // set the current parent
         FatxFileEntry *currentParent = GetFatxFileEntry(item);
 
-        QString type = item->data(1, Qt::UserRole).toString();
-        if (type == "STFS")
+        if (item->data(1, Qt::UserRole).toString() == "STFS")
         {
             FatxIO io = currentDrive->GetFatxIO(currentParent);
             StfsPackage package(&io);
@@ -406,23 +441,6 @@ void DeviceViewer::on_treeWidget_doubleClicked(const QModelIndex &index)
 
             package.Close();
             io.Close();
-        }
-        else if (type == "SVOD")
-        {
-            std::string rootFilePath = currentParent->path + currentParent->name;
-
-            SVOD *svodSystem = new SVOD(rootFilePath, currentDrive);
-            SvodDialog dialog(svodSystem, statusBar, this);
-            dialog.exec();
-        }
-        else if (type == "XEX")
-        {
-            FatxIO io = currentDrive->GetFatxIO(currentParent);
-            Xbox360Executable *xex = new Xbox360Executable(&io);
-
-            // the dialog will free xex
-            XexDialog dialog(xex, this);
-            dialog.exec();
         }
 
         if ((currentParent->fileAttributes & FatxDirectory) == 0)
@@ -477,7 +495,7 @@ void DeviceViewer::LoadFolderAll(FatxFileEntry *folder)
 
         currentDrive->GetChildFileEntries(folder, updateUI);
 
-        for (size_t i = 0; i < folder->cachedFiles.size(); i++)
+        for (int i = 0; i < folder->cachedFiles.size(); i++)
         {
             // get the entry
             FatxFileEntry *entry = &folder->cachedFiles.at(i);
@@ -498,10 +516,9 @@ void DeviceViewer::LoadFolderAll(FatxFileEntry *folder)
             {
                 QIcon fileIcon;
 
-                // get the file magic and file system (either SVOD or STFS, both have the same magic)
                 currentDrive->GetFileEntryMagic(entry);
 
-                QtHelpers::GetFileIcon(entry->magic, QString::fromStdString(entry->name), fileIcon, *entryItem, entry->fileSystem);
+                QtHelpers::GetFileIcon(entry->magic, QString::fromStdString(entry->name), fileIcon, *entryItem);
 
                 entryItem->setIcon(0, fileIcon);
                 entryItem->setText(1, QString::fromStdString(ByteSizeToString(entry->fileSize)));
@@ -596,7 +613,7 @@ void DeviceViewer::LoadPartitions()
 
     // load partitions
     std::vector<Partition*> parts = currentDrive->GetPartitions();
-    for (size_t i = 0; i < parts.size(); i++)
+    for (int i = 0; i < parts.size(); i++)
     {
         QTreeWidgetItem *item = new QTreeWidgetItem(ui->treeWidget);
         item->setData(5, Qt::UserRole, QVariant(true));
@@ -659,6 +676,7 @@ void DeviceViewer::on_treeWidget_2_itemClicked(QTreeWidgetItem *item, int column
 {
     if (!item->parent())
     {
+        ui->imgPiechart->setPixmap(QPixmap());
         currentDrive = item->data(0, Qt::UserRole).value<FatxDrive*>();
         parentEntry = NULL;
         currentDriveItem = item;
@@ -744,6 +762,11 @@ void DeviceViewer::on_txtPath_returnPressed()
         QMessageBox::critical(this, "Error", "Velocity can't find " + ui->txtPath->text() + ". Check the spelling and try again.");
     else
         LoadFolderAll(parent);
+}
+
+void updateUI(void *arg, bool finished)
+{
+    QApplication::processEvents();
 }
 
 void updateUIDelete(void *arg)
