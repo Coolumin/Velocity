@@ -19,8 +19,12 @@ MainWindow::MainWindow(QList<QUrl> arguments, QWidget *parent) : QMainWindow(par
     setAcceptDrops(true);
 
     QStringList fileNames;
+    fileNames.append("femaleAvatar.bin");
+    fileNames.append("FFFE07D1.gpd");
     fileNames.append("KV_D.bin");
     fileNames.append("KV_R.bin");
+    fileNames.append("male default.png");
+    fileNames.append("female default.png");
 
     // check for all of the startup files
     QString missingFiles = "";
@@ -42,7 +46,7 @@ MainWindow::MainWindow(QList<QUrl> arguments, QWidget *parent) : QMainWindow(par
 
     GitHubCommitsDialog *dialog = new GitHubCommitsDialog(this);
     dialog->setAttribute(Qt::WA_DeleteOnClose);
-    QtHelpers::AddSubWindow(ui->mdiArea, dialog);
+    ui->mdiArea->addSubWindow(dialog);
     dialog->show();
 
     pluginManager = new QNetworkAccessManager(this);
@@ -53,10 +57,6 @@ MainWindow::MainWindow(QList<QUrl> arguments, QWidget *parent) : QMainWindow(par
     manager = new QNetworkAccessManager(this);
     connect(manager, SIGNAL(finished(QNetworkReply*)), this, SLOT(versionReplyFinished(QNetworkReply*)));
     manager->get(QNetworkRequest(QUrl("http://velocity.expetelek.com/app.data")));
-
-    deviceNotifier = new FatxDeviceNotifier(this);
-    connect(deviceNotifier, SIGNAL(newDevicesDetected(QList<FatxDrive*>)), this, SLOT(onNewDeviceFound(QList<FatxDrive*>)));
-    deviceNotifier->start();
 
     LoadFiles(arguments);
 }
@@ -242,12 +242,9 @@ void MainWindow::on_actionDonate_triggered()
 
 void MainWindow::on_actionDevice_Viewer_triggered()
 {
-    DeviceViewer *viewer = new DeviceViewer(ui->statusBar, gpdActions, gameActions, this);
+    DeviceViewer *viewer = new DeviceViewer(ui->statusBar, this);
     viewer->setAttribute(Qt::WA_DeleteOnClose);
-    QtHelpers::AddSubWindow(ui->mdiArea, viewer);
-
-    connect(viewer, SIGNAL(destroyed()), this, SLOT(onDeviceViewerClosed()));
-    ui->actionDevice_Viewer->setEnabled(false);
+    ui->mdiArea->addSubWindow(viewer);
     viewer->show();
     viewer->LoadDrives();
 }
@@ -317,12 +314,6 @@ void MainWindow::PluginFinished()
 
 void MainWindow::LoadAllPlugins()
 {
-    ui->menuProfile_Modders->clear();
-    ui->menuGame_Modders->clear();
- 
-    gpdActions.clear();
-    gameActions.clear();
-	
     QDir path(QtHelpers::ExecutingDirectory());
     QDir pluginPath(path.absoluteFilePath(settings->value("PluginPath").toString()));
     qDebug() << "Plugin Directory: " << pluginPath.absolutePath();
@@ -395,21 +386,6 @@ void MainWindow::LoadFiles(QList<QUrl> &filePaths)
 
         try
         {
-            // detect ISO files by their extension
-            QFileInfo file(QString::fromStdString(fileName));
-            if (file.suffix().toLower() == "iso")
-            {
-                ISO *iso = new ISO(fileName);
-                ISODialog *dialog = new ISODialog(iso, ui->statusBar);
-
-                dialog->setAttribute(Qt::WA_DeleteOnClose);
-                QtHelpers::AddSubWindow(ui->mdiArea, dialog);
-                dialog->show();
-
-                return;
-            }
-
-
             // read in the file magic
             FileIO io(fileName);
             DWORD fileMagic = io.ReadDword();
@@ -431,7 +407,7 @@ void MainWindow::LoadFiles(QList<QUrl> &filePaths)
                             {
                                 PackageViewer *viewer = new PackageViewer(ui->statusBar, package, gpdActions, gameActions, this);
                                 viewer->setAttribute(Qt::WA_DeleteOnClose);
-                                QtHelpers::AddSubWindow(ui->mdiArea, viewer);
+                                ui->mdiArea->addSubWindow(viewer);
                                 viewer->show();
 
                                 ui->statusBar->showMessage("STFS package loaded successfully.", 3000);
@@ -452,7 +428,7 @@ void MainWindow::LoadFiles(QList<QUrl> &filePaths)
                             {
                                 PackageViewer *viewer = new PackageViewer(ui->statusBar, package, gpdActions, gameActions, this);
                                 viewer->setAttribute(Qt::WA_DeleteOnClose);
-                                QtHelpers::AddSubWindow(ui->mdiArea, viewer);
+                                ui->mdiArea->addSubWindow(viewer);
                                 viewer->show();
 
                                 ui->statusBar->showMessage("STFS package loaded successfully.", 3000);
@@ -468,12 +444,13 @@ void MainWindow::LoadFiles(QList<QUrl> &filePaths)
                             }
                             else
                             {
-                                ProfileEditor *editor = new ProfileEditor(ui->statusBar, package, true, this);
+                                bool ok;
+                                ProfileEditor *editor = new ProfileEditor(ui->statusBar, package, true, &ok, this);
                                 editor->setAttribute(Qt::WA_DeleteOnClose);
 
-                                if (editor->isOk())
+                                if (ok)
                                 {
-                                    QtHelpers::AddSubWindow(ui->mdiArea, editor);
+                                    ui->mdiArea->addSubWindow(editor);
                                     editor->show();
                                 }
                             }
@@ -483,69 +460,51 @@ void MainWindow::LoadFiles(QList<QUrl> &filePaths)
                     {
                         SVOD *svod = new SVOD(fileName);
                         SvodDialog *dialog = new SvodDialog(svod, ui->statusBar, this);
-                        QtHelpers::AddSubWindow(ui->mdiArea, dialog);
+                        ui->mdiArea->addSubWindow(dialog);
                         dialog->setAttribute(Qt::WA_DeleteOnClose);
                         dialog->exec();
                     }
 
                     break;
                 }
-                case 'XDBF':
+                case 0x58444246:    // Xdbf
                 {
                     GpdBase *gpd = new GpdBase(fileName);
                     ui->statusBar->showMessage("Gpd parsed successfully", 3000);
 
                     XdbfDialog *dialog = new XdbfDialog(ui->statusBar, gpd, NULL, this);
                     dialog->setAttribute(Qt::WA_DeleteOnClose);
-                    QtHelpers::AddSubWindow(ui->mdiArea, dialog);
+                    ui->mdiArea->addSubWindow(dialog);
                     dialog->show();
 
                     break;
                 }
-                case 'STRB':
+                case 0x53545242:    // STRB
                 {
                     AvatarAsset *asset = new AvatarAsset(fileName);
 
                     StrbDialog *dialog = new StrbDialog(asset, this);
                     dialog->setAttribute(Qt::WA_DeleteOnClose);
-                    QtHelpers::AddSubWindow(ui->mdiArea, dialog);
+                    ui->mdiArea->addSubWindow(dialog);
                     dialog->show();
 
                     ui->statusBar->showMessage("STRB file parsed successfully", 3000);
                     break;
                 }
 
-                case 'YTGR':
+                case 0x59544752:    // Ytgr
                 {
                     Ytgr *ytgr = new Ytgr(fileName);
 
                     YtgrDialog *dialog = new YtgrDialog(ytgr, ui->statusBar, this);
                     dialog->setAttribute(Qt::WA_DeleteOnClose);
-                    QtHelpers::AddSubWindow(ui->mdiArea, dialog);
-                    dialog->show();
-
-                    break;
-                }
-                case 'XEX2':
-                {
-                    Xbox360Executable *xex = new Xbox360Executable(fileName);
-                    XexDialog *dialog = new XexDialog(xex, this);
-                    QtHelpers::AddSubWindow(ui->mdiArea, dialog);
-                    dialog->show();
-
-                    break;
-                }
-                case XUIZ_MAGIC:
-                {
-                    Xuiz *xuiz = new Xuiz(fileName);
-                    XuizDialog *dialog = new XuizDialog(ui->statusBar, xuiz, this);
-                    QtHelpers::AddSubWindow(ui->mdiArea, dialog);
+                    ui->mdiArea->addSubWindow(dialog);
                     dialog->show();
 
                     break;
                 }
                 default:
-                    QMessageBox::warning(this, "Unknown File Format", "The following file is an unknown format. Velocity can only read ISO, STFS, STRB, SVOD, XEX, XDBF, XUIZ, and YTGR files.\n\n" + QString::fromStdString(fileName));
+                    QMessageBox::warning(this, "Unknown File Format", "The following file is an unknown format. Velocity can only read STFS, SVOD, Xdbf, Ytgr, and STRB files.\n\n" + QString::fromStdString(fileName));
                     break;
             }
         }
@@ -567,12 +526,13 @@ void MainWindow::on_actionProfile_Editor_triggered()
     {
         StfsPackage *package = new StfsPackage(fileName.toStdString());
 
-        ProfileEditor *editor = new ProfileEditor(ui->statusBar, package, true, this);
-        editor->setAttribute(Qt::WA_DeleteOnClose);
+        bool *ok = new bool;
+        ProfileEditor *editor = new ProfileEditor(ui->statusBar, package, true, ok, this);
 
-        if (editor->isOk())
+        if (*ok)
         {
-            QtHelpers::AddSubWindow(ui->mdiArea, editor);
+            editor->setAttribute(Qt::WA_DeleteOnClose);
+            ui->mdiArea->addSubWindow(editor);
             editor->show();
         }
     }
@@ -600,7 +560,7 @@ void MainWindow::on_actionPackage_triggered()
         StfsPackage *package = new StfsPackage(fileName.toStdString());
         PackageViewer *viewer = new PackageViewer(ui->statusBar, package, gpdActions, gameActions, this);
         viewer->setAttribute(Qt::WA_DeleteOnClose);
-        QtHelpers::AddSubWindow(ui->mdiArea, viewer);
+        ui->mdiArea->addSubWindow(viewer);
         viewer->show();
 
         ui->statusBar->showMessage("Stfs package loaded successfully.", 3000);
@@ -625,7 +585,7 @@ void MainWindow::on_actionXDBF_File_triggered()
 
         XdbfDialog *dialog = new XdbfDialog(ui->statusBar, gpd, NULL, this);
         dialog->setAttribute(Qt::WA_DeleteOnClose);
-        QtHelpers::AddSubWindow(ui->mdiArea, dialog);
+        ui->mdiArea->addSubWindow(dialog);
         dialog->show();
     }
     catch (string error)
@@ -646,7 +606,7 @@ void MainWindow::on_actionSTRB_File_triggered()
 
         StrbDialog *dialog = new StrbDialog(asset, this);
         dialog->setAttribute(Qt::WA_DeleteOnClose);
-        QtHelpers::AddSubWindow(ui->mdiArea, dialog);
+        ui->mdiArea->addSubWindow(dialog);
         dialog->show();
     }
     catch (string error)
@@ -670,7 +630,7 @@ void MainWindow::on_actionCreate_Package_triggered()
 
         PackageViewer *viewer = new PackageViewer(ui->statusBar, package, gpdActions, gameActions, this);
         viewer->setAttribute(Qt::WA_DeleteOnClose);
-        QtHelpers::AddSubWindow(ui->mdiArea, viewer);
+        ui->mdiArea->addSubWindow(viewer);
         viewer->show();
 
         ui->statusBar->showMessage("Stfs package created successfully.", 3000);
@@ -685,12 +645,18 @@ void MainWindow::on_actionTitle_ID_Finder_triggered()
 {
     TitleIdFinderDialog *dialog = new TitleIdFinderDialog(ui->statusBar, this);
     dialog->setAttribute(Qt::WA_DeleteOnClose);
-    QtHelpers::AddSubWindow(ui->mdiArea, dialog);
+    ui->mdiArea->addSubWindow(dialog);
     dialog->show();
 }
 
 void MainWindow::on_actionProfile_Creator_triggered()
 {
+    if (!QFile::exists(QtHelpers::ExecutingDirectory() + "FFFE07D1.gpd"))
+    {
+        QMessageBox::critical(this, "File Not Found", "The file FFFE07D1.gpd was not found. This file must be in the same directory as this application.");
+        return;
+    }
+
     ProfileCreatorWizard wiz(ui->statusBar, this);
     wiz.exec();
 }
@@ -716,7 +682,7 @@ void MainWindow::on_actionGamer_Picture_Pack_Creator_triggered()
 {
     GamerPicturePackDialog *dialog = new GamerPicturePackDialog(ui->statusBar, this);
     dialog->setAttribute(Qt::WA_DeleteOnClose);
-    QtHelpers::AddSubWindow(ui->mdiArea, dialog);
+    ui->mdiArea->addSubWindow(dialog);
     dialog->show();
 }
 
@@ -742,8 +708,6 @@ void MainWindow::on_actionPreferences_triggered()
 {
     PreferencesDialog dialog(this);
     dialog.exec();
-    
-    LoadAllPlugins();
 }
 
 void MainWindow::on_actionFATX_File_Path_triggered()
@@ -758,7 +722,7 @@ void MainWindow::on_actionFATX_File_Path_triggered()
         StfsPackage *package = new StfsPackage(fileName.toStdString());
         FATXPathGenDialog *dialog = new FATXPathGenDialog(package, this);
         dialog->setAttribute(Qt::WA_DeleteOnClose);
-        QtHelpers::AddSubWindow(ui->mdiArea, dialog);
+        ui->mdiArea->addSubWindow(dialog);
         dialog->show();
     }
     catch (string error)
@@ -853,7 +817,7 @@ void MainWindow::on_actionSVOD_System_triggered()
         ui->statusBar->showMessage("Loading SVOD system...");
         SVOD *svod = new SVOD(filePath.toStdString());
         SvodDialog *dialog = new SvodDialog(svod, ui->statusBar, this);
-        QtHelpers::AddSubWindow(ui->mdiArea, dialog);
+        ui->mdiArea->addSubWindow(dialog);
         dialog->show();
     }
     catch (string error)
@@ -874,145 +838,12 @@ void MainWindow::on_actionYTGR_triggered()
     {
         Ytgr *ytgr = new Ytgr(filePath.toStdString());
         YtgrDialog *dialog = new YtgrDialog(ytgr, ui->statusBar, this);
-        QtHelpers::AddSubWindow(ui->mdiArea, dialog);
+        ui->mdiArea->addSubWindow(dialog);
         dialog->show();
     }
     catch (string error)
     {
         ui->statusBar->showMessage("");
         QMessageBox::critical(this, "Ytgr Error", "An error has occurred while parsing a Ytgr header.\n\n" + QString::fromStdString(error));
-    }
-}
-
-void MainWindow::on_actionContent_Device_Viewer_triggered()
-{
-    DeviceContentViewer *viewer = new DeviceContentViewer(ui->statusBar, this);
-    viewer->setAttribute(Qt::WA_DeleteOnClose);
-    QtHelpers::AddSubWindow(ui->mdiArea, viewer);
-
-    connect(viewer, SIGNAL(destroyed()), this, SLOT(onContentDeviceViewerClosed()));
-    ui->actionContent_Device_Viewer->setEnabled(false);
-    viewer->show();
-}
-
-void MainWindow::onNewDeviceFound(QList<FatxDrive *> devices)
-{
-    if (DeviceContentViewer::OPEN)
-        return;
-
-    // get a list of all the new devices
-    bool hdd = false;
-    QString deviceList;
-    foreach (FatxDrive *device, devices)
-    {
-        QString size = QString::fromStdString(ByteSizeToString(device->GetDeviceSize()));
-        QString type = device->GetFatxDriveType() == FatxHarddrive ? "Hard Drive" : "USB";
-        deviceList += "\t" + size + " " + type + " device\n";
-
-        if (device->GetFatxDriveType() == FatxHarddrive)
-            hdd = true;
-    }
-
-    QPixmap deviceIcon;
-    if (hdd)
-        deviceIcon = QPixmap(":/Images/harddrive.png");
-    else
-        deviceIcon = QPixmap(":/Images/usb drive.png");
-
-    QString message = "The following Xbox 360 devices have been detected.\n" + deviceList + "\n" +
-            "Would you like to open the content device viewer?";
-
-    QMessageBox newDeviceMessage(this);
-    if (devices.size() == 1)
-        newDeviceMessage.setWindowTitle("Device Detected");
-    else
-        newDeviceMessage.setWindowTitle("Devices Detected");
-    newDeviceMessage.setText(message);
-    newDeviceMessage.setIconPixmap(deviceIcon.scaled(75, 50));
-
-    newDeviceMessage.setStandardButtons(QMessageBox::Yes | QMessageBox::No);
-
-    // open the device viewer if requested
-    if (newDeviceMessage.exec() == QMessageBox::Yes)
-    {
-        DeviceContentViewer *viewer = new DeviceContentViewer(ui->statusBar, this);
-        viewer->setAttribute(Qt::WA_DeleteOnClose);
-        QtHelpers::AddSubWindow(ui->mdiArea, viewer);
-
-        connect(viewer, SIGNAL(destroyed()), this, SLOT(onContentDeviceViewerClosed()));
-        ui->actionContent_Device_Viewer->setEnabled(false);
-        viewer->show();
-    }
-}
-
-void MainWindow::onContentDeviceViewerClosed()
-{
-    ui->actionContent_Device_Viewer->setEnabled(true);
-}
-
-void MainWindow::onDeviceViewerClosed()
-{
-    ui->actionDevice_Viewer->setEnabled(true);
-}
-
-
-void MainWindow::on_actionISO_triggered()
-{
-    QString isoPath = QFileDialog::getOpenFileName(this, "Open an ISO", QtHelpers::DesktopLocation());
-
-    if (!isoPath.isEmpty())
-    {
-        try
-        {
-            ISO *iso = new ISO(isoPath.toStdString());
-            ISODialog *dialog = new ISODialog(iso, ui->statusBar, this);
-            QtHelpers::AddSubWindow(ui->mdiArea, dialog);
-            dialog->show();
-        }
-        catch (std::string error)
-        {
-            QMessageBox::critical(this, "Error Opening ISO", QString::fromStdString(error));
-        }
-    }
-}
-
-void MainWindow::on_actionXEX_triggered()
-{
-    QString xexPath = QFileDialog::getOpenFileName(this, "Open an XEX", QtHelpers::DesktopLocation());
-
-    if (!xexPath.isEmpty())
-    {
-        try
-        {
-            Xbox360Executable *xex = new Xbox360Executable(xexPath.toStdString());
-            XexDialog *dialog = new XexDialog(xex, this);
-            QtHelpers::AddSubWindow(ui->mdiArea, dialog);
-            dialog->show();
-        }
-        catch (std::string error)
-        {
-            QMessageBox::critical(this, "Error Opening XEX", QString::fromStdString(error));
-        }
-    }
-}
-
-void MainWindow::on_actionXUIZ_triggered()
-{
-    QString xuizPath = QFileDialog::getOpenFileName(this, "Open an XUIZ File", QtHelpers::DesktopLocation());
-
-    if (!xuizPath.isEmpty())
-    {
-        try
-        {
-            Xuiz *xuiz = new Xuiz(xuizPath.toStdString());
-            XuizDialog *dialog = new XuizDialog(ui->statusBar, xuiz, this);
-            QtHelpers::AddSubWindow(ui->mdiArea, dialog);
-            dialog->show();
-
-        }
-        catch (std::string error)
-        {
-            QMessageBox::critical(this, "Error Opening XUIZ", QString::fromStdString(error));
-        }
     }
 }
