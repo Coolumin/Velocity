@@ -15,7 +15,7 @@ The Qt Creator IDE is used to build/debug Velocity. Velocity currently depends o
 	2. Download the Botan binary (.a) from http://www.mediafire.com/?o5zhbb4leufk8d7, if available.
 	
 - MAC
-	n/a
+	Botan can be installed using Homebrew by typing `brew install botan` into your terminal.
 
 - LINUX
 
