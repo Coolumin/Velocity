@@ -7,7 +7,7 @@
 #include <QMessageBox>
 #include "qthelpers.h"
 
-#ifndef __linux
+#ifdef _WIN32
     #include <phonon/MediaObject>
     #include <phonon/AudioOutput>
 #endif
@@ -36,7 +36,7 @@ private slots:
 private:
     Ui::About *ui;
 
-#ifndef __linux
+#ifdef _WIN32
     Phonon::MediaObject *developers;
     Phonon::AudioOutput *audioOutput;
 #endif
