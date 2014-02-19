@@ -4,21 +4,29 @@
 #
 #-------------------------------------------------
 
-QT       += core gui network xml
+QT       += core gui network xml widgets
 
 # application
 TARGET = Velocity
 TEMPLATE = app
-
 win32:UI_DIR = ../Velocity
 
 # application version
 VERSION = 0.1.0.0
 DEFINES += VERSION=\\\"$$VERSION\\\"
 
-# linking against botan (and adding to include path)
+# flags
+#QMAKE_CXXFLAGS += -std=c++11
+macx {
+    QMAKE_CFLAGS_X86_64 += -mmacosx-version-min=10.7
+    QMAKE_CXXFLAGS_X86_64 = $$QMAKE_CFLAGS_X86_64
+}
+
+# header include path
+INCLUDEPATH += $$PWD/../XboxInternals
+
 win32 {
-        LIBS += -LC:/botan/ -lbotan-1.10
+    LIBS += -LC:/botan/ -lbotan-1.10
     INCLUDEPATH += C:/botan/include
 }
 macx|unix {
@@ -27,35 +35,21 @@ macx|unix {
 }
 
 
-# phonon, icon
-win32 {
-    QT += phonon
-    RC_FILE = velocity.rc
-}
+win32:QT += phonon
+win32:RC_FILE = velocity.rc
+macx:ICON = velocity.icns
 
-# application info, icon
-macx {
-    QMAKE_INFO_PLIST = Info.plist.app
-    ICON = velocity.icns
-}
-  
-# linking against XboxInternals (and adding to include path)
-INCLUDEPATH += $$PWD/../XboxInternals
 CONFIG(debug, debug|release) {
     win32:LIBS += -L$$PWD/../XboxInternals-Win/debug/ -lXboxInternals
     macx:LIBS += -L$$PWD/../XboxInternals-OSX/debug/ -lXboxInternals
-    unix:!macx {
-        LIBS += -L$$PWD/../XboxInternals-Linux/debug/ -lXboxInternals
-        PRE_TARGETDEPS += $$PWD/../XboxInternals-Linux/debug/libXboxInternals.a
-    }
+    unix:!macx:LIBS += -L$$PWD/../XboxInternals-Linux/debug/ -lXboxInternals
+    unix:!macx:PRE_TARGETDEPS += $$PWD/../XboxInternals-Linux/debug/libXboxInternals.a
 }
 CONFIG(release, debug|release) {
     win32:LIBS += -L$$PWD/../XboxInternals-Win/release/ -lXboxInternals
     macx:LIBS += -L$$PWD/../XboxInternals-OSX/release/ -lXboxInternals
-    unix:!macx {
-        LIBS += -L$$PWD/../XboxInternals-Linux/release/ -lXboxInternals
-        PRE_TARGETDEPS += $$PWD/../XboxInternals-Linux/release/libXboxInternals.a
-    }
+    unix:!macx:LIBS += -L$$PWD/../XboxInternals-Linux/release/ -lXboxInternals
+    unix:!macx:PRE_TARGETDEPS += $$PWD/../XboxInternals-Linux/release/libXboxInternals.a
 }
 
 SOURCES += main.cpp \
@@ -106,15 +100,7 @@ SOURCES += main.cpp \
     securitysectordialog.cpp \
     nightcharts.cpp \
     dragdroptreewidget.cpp \
-    flashdriveconfigdatadialog.cpp \
-    devicecontentviewer.cpp \
-    fatxdevicenotifier.cpp \
-    profileselectiondialog.cpp \
-    isodialog.cpp \
-    isosectordialog.cpp \
-    xexdialog.cpp \
-    xuizdialog.cpp \
-    boxartretriever.cpp
+    flashdriveconfigdatadialog.cpp
 
 HEADERS  += mainwindow.h \
     packageviewer.h \
@@ -165,15 +151,7 @@ HEADERS  += mainwindow.h \
     securitysectordialog.h \
     nightcharts.h \
     dragdroptreewidget.h \
-    flashdriveconfigdatadialog.h \
-    devicecontentviewer.h \
-    fatxdevicenotifier.h \
-    profileselectiondialog.h \
-    isodialog.h \
-    isosectordialog.h \
-    xexdialog.h \
-    xuizdialog.h \
-    boxartretriever.h
+    flashdriveconfigdatadialog.h
 
 FORMS    += mainwindow.ui \
     packageviewer.ui \
@@ -214,13 +192,7 @@ FORMS    += mainwindow.ui \
     fatxfiledialog.ui \
     partitiondialog.ui \
     securitysectordialog.ui \
-    flashdriveconfigdatadialog.ui \
-    devicecontentviewer.ui \
-    profileselectiondialog.ui \
-    isodialog.ui \
-    isosectordialog.ui \
-    xexdialog.ui \
-    xuizdialog.ui
+    flashdriveconfigdatadialog.ui
 
 RESOURCES += \
     Resources.qrc
