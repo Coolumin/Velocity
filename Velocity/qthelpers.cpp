@@ -24,34 +24,29 @@ DWORD QtHelpers::ParseHexString(QString string)
     return string.toULong(0, 16);
 }
 
-QString QtHelpers::ToHexString(UINT64 num)
-{
-    return "0x" + QString::number(num, 16).toUpper();
-}
-
-void QtHelpers::ParseHexStringBuffer(QString bytes, BYTE *outBuffer, int len)
+void QtHelpers::ParseHexStringBuffer(QString bytes, BYTE *outBuffer, DWORD len)
 {
     bytes = bytes.trimmed().replace(" ", "");
 
     if (len != (bytes.length() / 2))
         throw QString("QT: Error converting hex string to byte array, length mismatch.\n");
 
-    for (int i = 0; i < len; i++)
+    for (DWORD i = 0; i < len; i++)
     {
         QString temp = bytes.mid(i * 2, 2);
         outBuffer[i] = temp.toInt(0, 16);
     }
 }
 
-QString QtHelpers::DesktopLocation()
+QString QtHelpers::DefaultLocation()
 {
 #if QT_VERSION >= 0x050000
-    QString desktopLocation = QStandardPaths::standardLocations(QStandardPaths::DesktopLocation).at(0);
+    QString defaultLocation = QStandardPaths::standardLocations(QStandardPaths::HomeLocation).at(0);
 #else
-    QString desktopLocation = QDesktopServices::storageLocation(QDesktopServices::DesktopLocation);
+    QString defaultLocation = QDesktopServices::storageLocation(QDesktopServices::HomeLocation);
 #endif
 
-    return desktopLocation.replace("\\", "/");
+    return defaultLocation.replace("\\", "/");
 }
 
 bool QtHelpers::VerifyHexStringBuffer(QString bytes)
@@ -68,8 +63,6 @@ bool QtHelpers::VerifyHexString(QString str)
     return true;
 }
 
-#include <QDebug>
-
 std::string QtHelpers::GetKVPath(ConsoleType type, QWidget *parent)
 {
     std::string kvName = ExecutingDirectory().toStdString() + "KV_";
@@ -78,21 +71,10 @@ std::string QtHelpers::GetKVPath(ConsoleType type, QWidget *parent)
     else
         kvName += "D.bin";
 
-    if (!QFile::exists(QString::fromStdString(kvName)))
+    if (!QFile::exists( QString::fromStdString(kvName)))
     {
-        QFileDialog dialog(parent, "KV Location", DesktopLocation() + "/KV.bin");
-        dialog.setFileMode(QFileDialog::ExistingFile);
-        dialog.setViewMode(QFileDialog::Detail);
-
-        if (dialog.exec() == QFileDialog::Accepted)
-        {
-            QStringList files = dialog.selectedFiles();
-
-            if(files.size() > 0)
-                kvName = files.at(0).toStdString();
-        }
-        else
-            kvName = "";
+        QString path = QFileDialog::getOpenFileName(parent, "KV Location", DefaultLocation() + "/KV.bin");
+        kvName = path.toStdString();
     }
     return kvName;
 }
@@ -278,13 +260,6 @@ void QtHelpers::SearchTreeWidget(QTreeWidget *widget, QLineEdit *searchWidget, Q
     }
 }
 
-QTreeWidgetItem *QtHelpers::GetRootLevelTreeWidgetItem(QTreeWidgetItem *item)
-{
-    while (item->parent() != NULL)
-        item = item->parent();
-    return item;
-}
-
 void QtHelpers::HideAllItems(QTreeWidgetItem *parent)
 {
     for (int i = 0; i < parent->childCount(); i++)
@@ -316,7 +291,7 @@ void QtHelpers::CollapseAllChildren(QTreeWidgetItem *item)
         QtHelpers::CollapseAllChildren(item->child(i));
 }
 
-void QtHelpers::GetFileIcon(DWORD magic, QString fileName, QIcon &icon, QTreeWidgetItem &item, FileSystem fileSystem)
+void QtHelpers::GetFileIcon(DWORD magic, QString fileName, QIcon &icon, QTreeWidgetItem &item)
 {
     item.setData(1, Qt::UserRole, "");
 
@@ -326,10 +301,7 @@ void QtHelpers::GetFileIcon(DWORD magic, QString fileName, QIcon &icon, QTreeWid
         case LIVE:
         case PIRS:
             icon = QIcon(":/Images/PackageFileIcon.png");
-            if (fileSystem == FileSystemSTFS)
-                item.setData(1, Qt::UserRole, "STFS");
-            else if (fileSystem == FileSystemSVOD)
-                item.setData(1, Qt::UserRole, "SVOD");
+            item.setData(1, Qt::UserRole, "STFS");
             break;
         case 0x58444246:    // Xdbf
             icon = QIcon(":/Images/GpdFileIcon.png");
@@ -343,7 +315,7 @@ void QtHelpers::GetFileIcon(DWORD magic, QString fileName, QIcon &icon, QTreeWid
             icon = QIcon(":/Images/XEXFileIcon.png");
             item.setData(1, Qt::UserRole, "XEX");
             break;
-        case 0x89504E47:    // PNG
+        case 0x89504E47:    // ‰PNG
             icon = QIcon(":/Images/ImageFileIcon.png");
             item.setData(1, Qt::UserRole, "Image");
             break;
@@ -368,80 +340,4 @@ void QtHelpers::GetFileIcon(DWORD magic, QString fileName, QIcon &icon, QTreeWid
             else
                 icon = QIcon(":/Images/DefaultFileIcon.png");
     }
-}
-
-void QtHelpers::AddSubWindow(QMdiArea *mdiArea, QWidget *widget)
-{
-    widget->installEventFilter(new SubWindowEvents(widget));
-    mdiArea->addSubWindow(widget);
-}
-
-QtHelpers::SubWindowEvents::SubWindowEvents(QObject *parent)
-{
-}
-
-bool QtHelpers::SubWindowEvents::eventFilter(QObject *obj, QEvent *event)
-{
-    QKeyEvent *keyEvent = static_cast<QKeyEvent *>(event);
-
-    if (event->type() == QEvent::KeyPress && keyEvent->key() == Qt::Key_Escape) 
-    {
-        return true;
-    } 
-    
-    return QObject::eventFilter(obj, event);
-}
-
-QStringList QtHelpers::StdStringArrayToQStringList(std::vector<std::string> strings)
-{
-    QStringList toReturn;
-    for (size_t i = 0; i < strings.size(); i++)
-        toReturn.append(QString::fromStdString(strings.at(i)));
-    return toReturn;
-}
-
-void QtHelpers::DrawFreeMemoryGraph(FatxDrive *drive, QLabel *graph, QColor backgroundColor, QLabel *freeMemLegendColor, QLabel *freeMemLegend,
-                                    QLabel *usedMemLengendColor, QLabel *usedMemLegend, bool contentOnly, void(*progress)(void*, bool))
-{
-    UINT64 totalFreeSpace = 0;
-    UINT64 totalSpace = 0;
-
-    // load the partion information
-    std::vector<Partition*> parts = drive->GetPartitions();
-    for (DWORD i = 0; i < parts.size(); i++)
-    {
-        if (!contentOnly || parts.at(i)->name == "Content")
-        {
-            totalFreeSpace += drive->GetFreeMemory(parts.at(i), progress);
-            totalSpace += (UINT64)parts.at(i)->clusterCount * parts.at(i)->clusterSize;
-        }
-    }
-
-    // calculate the percentage
-    float freeMemPercentage = (((float)totalFreeSpace * 100.0) / totalSpace);
-
-    // draw the insano piechart
-    QPixmap chart(750, 500);
-    chart.fill(backgroundColor);
-    QPainter painter(&chart);
-    Nightcharts pieChart;
-    pieChart.setType(Nightcharts::Dpie);
-    pieChart.setCords(25, 1, 700, 425);
-    pieChart.setFont(QFont());
-    pieChart.addPiece("Used Space", QColor(0, 0, 254), 100.0 - freeMemPercentage);
-    pieChart.addPiece("Free Space", QColor(255, 0, 254), freeMemPercentage);
-    pieChart.draw(&painter);
-
-    graph->setPixmap(chart);
-
-    // setup the legend
-    QPixmap freeMemClr(16, 16);
-    freeMemClr.fill(QColor(255, 0, 254));
-    freeMemLegendColor->setPixmap(freeMemClr);
-    freeMemLegend->setText(QString::fromStdString(ByteSizeToString(totalFreeSpace)) + " of Free Space");
-
-    QPixmap usedMemClr(16, 16);
-    usedMemClr.fill(QColor(0, 0, 254));
-    usedMemLengendColor->setPixmap(usedMemClr);
-    usedMemLegend->setText(QString::fromStdString(ByteSizeToString(totalSpace - totalFreeSpace)) + " of Used Space");
 }
