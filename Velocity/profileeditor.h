@@ -194,6 +194,8 @@ class ProfileEditor : public QDialog
 public:
     explicit ProfileEditor(QStatusBar *statusBar, StfsPackage *profile, bool dispose, QWidget *parent = 0);
     ~ProfileEditor();
+
+    bool isOk();
     
     bool isOk();
     
