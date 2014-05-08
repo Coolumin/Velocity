@@ -1,8 +1,10 @@
 #include "singleprogressdialog.h"
 #include "ui_singleprogressdialog.h"
 
-SingleProgressDialog::SingleProgressDialog(FileSystem system, void *device, Operation op, QString internalPath, QString externalPath, void *outEntry, QWidget *parent) :
-    QDialog(parent), ui(new Ui::SingleProgressDialog), system(system), device(device), op(op), internalPath(internalPath), externalPath(externalPath), outEntry(outEntry)
+SingleProgressDialog::SingleProgressDialog(FileSystem system, void *device, Operation op,
+        QString internalPath, QString externalPath, void *outEntry, QWidget *parent) :
+    QDialog(parent), ui(new Ui::SingleProgressDialog), system(system), device(device), op(op),
+    internalPath(internalPath), externalPath(externalPath), outEntry(outEntry)
 {
     setWindowFlags(windowFlags() & ~Qt::WindowContextHelpButtonHint);
     ui->setupUi(this);
@@ -51,7 +53,8 @@ void SingleProgressDialog::start()
                 else if (op == OpInject)
                 {
                     StfsFileEntry *entry = reinterpret_cast<StfsFileEntry*>(outEntry);
-                    *entry = package->InjectFile(externalPath.toStdString(), internalPath.toStdString(), UpdateProgress, this);
+                    *entry = package->InjectFile(externalPath.toStdString(), internalPath.toStdString(), UpdateProgress,
+                             this);
                 }
                 break;
             }
@@ -76,11 +79,13 @@ void SingleProgressDialog::start()
                     try
                     {
                         FatxFileEntry *parent = reinterpret_cast<FatxFileEntry*>(outEntry);
-                        drive->InjectFile(parent, internalPath.toStdString(), externalPath.toStdString(), UpdateProgress, this);
+                        drive->InjectFile(parent, internalPath.toStdString(), externalPath.toStdString(), UpdateProgress,
+                                this);
                     }
                     catch (string error)
                     {
-                        QMessageBox::critical(this, "", "An error occurred while copy the file to your device.\n\n" + QString::fromStdString(error));
+                        QMessageBox::critical(this, "",
+                                "An error occurred while copy the file to your device.\n\n" + QString::fromStdString(error));
                     }
                 }
                 else if (op == OpBackup)
@@ -92,7 +97,8 @@ void SingleProgressDialog::start()
                     }
                     catch (string error)
                     {
-                        QMessageBox::critical(this, "", "An error occurred while creating a backup for your device.\n\n" + QString::fromStdString(error));
+                        QMessageBox::critical(this, "",
+                                "An error occurred while creating a backup for your device.\n\n" + QString::fromStdString(error));
                     }
                 }
                 else if (op == OpRestore)
@@ -104,7 +110,8 @@ void SingleProgressDialog::start()
                     }
                     catch (string error)
                     {
-                        QMessageBox::critical(this, "", "An error occurred while restoring your device from a backup.\n\n" + QString::fromStdString(error));
+                        QMessageBox::critical(this, "",
+                                "An error occurred while restoring your device from a backup.\n\n" + QString::fromStdString(error));
                     }
                 }
                 break;
@@ -126,7 +133,8 @@ void SingleProgressDialog::start()
     }
     catch (string error)
     {
-        QMessageBox::critical(this, "Error", "An error occured during the operation.\n\n" + QString::fromStdString(error));
+        QMessageBox::critical(this, "Error",
+                "An error occured during the operation.\n\n" + QString::fromStdString(error));
         close();
     }
 }

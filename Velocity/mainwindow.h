@@ -67,7 +67,8 @@ using namespace std;
 
 Q_DECLARE_METATYPE( StfsPackage* )
 
-namespace Ui {
+namespace Ui
+{
 class MainWindow;
 }
 
@@ -81,7 +82,7 @@ struct Arguments
 class MainWindow : public QMainWindow
 {
     Q_OBJECT
-    
+
 public:
     explicit MainWindow(QList<QUrl> arguments, QWidget *parent = 0);
     void LoadPlugin(QString filename, bool addToMenu, StfsPackage *package = NULL);
