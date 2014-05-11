@@ -23,8 +23,12 @@ public:
     
     static unsigned int FILETIMEtoMilliseconds(WINFILETIME time);
 
+    static unsigned int FILETIMEtoMilliseconds(WINFILETIME time);
+
     static WINFILETIME TimeTtoFILETIME(time_t time);
     
+    static WINFILETIME TimeTtoFILETIME(time_t time, unsigned int milliseconds);
+
     static WINFILETIME TimeTtoFILETIME(time_t time, unsigned int milliseconds);
 
     static string AchievementTypeToString(AchievementFlags type);
