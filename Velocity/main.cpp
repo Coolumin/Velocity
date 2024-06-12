@@ -5,6 +5,7 @@
 #endif
 
 #include <QStringList>
+#include <QNetworkInformation>
 #include "mainwindow.h"
 
 #include <QDebug>
@@ -19,6 +20,8 @@ int main(int argc, char *argv[])
     QList<QUrl> args;
     for (int i = 1; i < argc; i++)
         args.append(QUrl("file:///" + QString::fromLatin1(argv[i]).replace("\\", "/")));
+
+    QNetworkInformation::loadDefaultBackend();
 
     MainWindow w(args);
     w.show();
