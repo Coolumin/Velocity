@@ -1531,14 +1531,14 @@ void ProfileEditor::showAllGames()
 {
     // show all the items
     for (int i = 0; i < ui->gamesList->topLevelItemCount(); i++)
-        ui->gamesList->setItemHidden(ui->gamesList->topLevelItem(i), false);
+        ui->gamesList->topLevelItem(i)->setHidden(false);
 }
 
 void ProfileEditor::showAllAwardGames()
 {
     // show all the items
     for (int i = 0; i < ui->aaGamelist->topLevelItemCount(); i++)
-        ui->aaGamelist->setItemHidden(ui->aaGamelist->topLevelItem(i), false);
+        ui->aaGamelist->topLevelItem(i)->setHidden(false);
 }
 
 void ProfileEditor::on_btnAwardShowAll_clicked()
@@ -1624,7 +1624,7 @@ void ProfileEditor::on_txtGameSearch_textChanged(const QString & /*arg1*/)
 
     // hide all the items
     for (int i = 0; i < ui->gamesList->topLevelItemCount(); i++)
-        ui->gamesList->setItemHidden(ui->gamesList->topLevelItem(i), true);
+        ui->gamesList->topLevelItem(i)->setHidden(true);
 
     if (itemsMatched.count() == 0)
     {
@@ -1635,7 +1635,7 @@ void ProfileEditor::on_txtGameSearch_textChanged(const QString & /*arg1*/)
     ui->txtGameSearch->setStyleSheet("");
     // add all the matched ones to the list
     for (int i = 0; i < itemsMatched.count(); i++)
-        ui->gamesList->setItemHidden(itemsMatched.at(i), false);
+        itemsMatched.at(i)->setHidden(false);
 }
 
 void ProfileEditor::on_txtAwardGameSearch_textChanged(const QString & /* arg1 */)
@@ -1644,7 +1644,7 @@ void ProfileEditor::on_txtAwardGameSearch_textChanged(const QString & /* arg1 */
 
     // hide all the items
     for (int i = 0; i < ui->aaGamelist->topLevelItemCount(); i++)
-        ui->aaGamelist->setItemHidden(ui->aaGamelist->topLevelItem(i), true);
+        ui->aaGamelist->topLevelItem(i)->setHidden(true);
 
     if (itemsMatched.count() == 0)
     {
@@ -1655,7 +1655,7 @@ void ProfileEditor::on_txtAwardGameSearch_textChanged(const QString & /* arg1 */
     ui->txtAwardGameSearch->setStyleSheet("");
     // add all the matched ones to the list
     for (int i = 0; i < itemsMatched.count(); i++)
-        ui->aaGamelist->setItemHidden(itemsMatched.at(i), false);
+        itemsMatched.at(i)->setHidden(false);
 }
 
 void ProfileEditor::on_tabWidget_currentChanged(int index)
