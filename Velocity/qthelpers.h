@@ -20,6 +20,7 @@
 #include <QProgressBar>
 #include <QStringList>
 #include <QMdiArea>
+#include <QStandardPaths>
 
 // other
 #include "winnames.h"
