@@ -19,7 +19,7 @@ FileIO::FileIO(string path, bool truncate) :
     fstr->seekp(0);
 }
 
-void FileIO::SetPosition(UINT64 pos, ios_base::seek_dir dir)
+void FileIO::SetPosition(UINT64 pos, ios_base::seekdir dir)
 {
     fstr->seekp(pos, dir);
 }
