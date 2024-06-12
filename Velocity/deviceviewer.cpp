@@ -272,7 +272,7 @@ void DeviceViewer::showContextMenu(QPoint point)
                     QDate date;
                     date.setDate(createdtime.year, createdtime.month, createdtime.monthDay);
 
-                    entryItem->setText(2, date.toString(Qt::DefaultLocaleShortDate));
+                    entryItem->setText(2, date.toString(QLocale::system().dateFormat(QLocale::ShortFormat)));
                 }
             }
         }
@@ -552,7 +552,7 @@ void DeviceViewer::LoadFolderAll(FatxFileEntry *folder)
             QDate date;
             date.setDate(createdtime.year, createdtime.month, createdtime.monthDay);
 
-            entryItem->setText(2, date.toString(Qt::DefaultLocaleShortDate));
+            entryItem->setText(2, date.toString(QLocale::system().dateFormat(QLocale::ShortFormat)));
 
             if (i % 25 == 0)
                 QApplication::processEvents();
