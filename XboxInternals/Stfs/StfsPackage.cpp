@@ -1058,7 +1058,7 @@ void StfsPackage::SwapTable(DWORD index, Level lvl)
     }
 
     // good boys free their memory
-    delete tableStatuses;
+    delete[] tableStatuses;
 
 }
 
