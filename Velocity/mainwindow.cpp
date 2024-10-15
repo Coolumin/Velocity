@@ -376,7 +376,13 @@ void MainWindow::LoadFiles(QList<QUrl> &filePaths)
 {
     for (int i = 0; i < filePaths.size(); i++)
     {
-        std::string fileName = filePaths.at(i).toLocalFile().toStdString();
+        std::string fileName;
+#ifdef __WIN32__
+        fileName = QString(filePaths.at(i).path()).mid(1).toStdString();
+#else
+        fileName = QString(filePaths.at(i).path()).replace("file://", "").toStdString();
+#endif
+
 
         // make sure the file exists
         if (!QFile::exists(QString::fromStdString(fileName)))
