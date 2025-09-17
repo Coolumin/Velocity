@@ -35,7 +35,7 @@ macx {
 else:unix {
     PLATFORM_BUILD_NAME = Unix
     INCLUDEPATH += /usr/include/botan-3
-    LIBS += /usr/lib/libbotan-3.so.0
+    LIBS += /usr/lib/libbotan-3.so
 }
 
 # linking against XboxInternals (and adding to include path)
