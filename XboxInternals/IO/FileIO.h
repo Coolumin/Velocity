@@ -4,7 +4,7 @@
 #include <fstream>
 #include <string.h>
 #include <errno.h>
-#include "winnames.h"
+#include "TypeDefinitions.h"
 #include "IO/BaseIO.h"
 
 using std::string;
@@ -16,8 +16,8 @@ using std::ios_base;
 class XBOXINTERNALSSHARED_EXPORT FileIO : public BaseIO
 {
 public:
-	FileIO(string path, bool truncate = false);
-    void SetPosition(UINT64 pos, ios_base::seek_dir dir = ios_base::beg);
+    FileIO(string path, bool truncate = false);
+    void SetPosition(UINT64 pos, ios_base::seekdir dir = ios_base::beg);
     UINT64 GetPosition();
     UINT64 Length();
 
@@ -27,16 +27,15 @@ public:
     void Close();
     void Flush();
 
-    void Resize(UINT64 size);
-
     string GetFilePath();
 
     static void ReverseGenericArray(void *arr, int elemSize, int len);
-	virtual ~FileIO();
+    virtual ~FileIO();
 private:
     EndianType endian;
-	void ReadBytesWithChecks(void *buffer, INT32 size);
-	fstream *fstr;
-    string filePath;
+    UINT64 length;
+    void ReadBytesWithChecks(void *buffer, INT32 size);
+    fstream *fstr;
+    const string filePath;
 };
 

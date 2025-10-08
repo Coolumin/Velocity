@@ -1,13 +1,10 @@
 #ifndef GDFX_H
 #define GDFX_H
 
-#include "winnames.h"
-#include "IO/IndexableMultiFileIO.h"
+#include "TypeDefinitions.h"
+#include "IO/SvodMultiFileIO.h"
 #include <iostream>
 #include <vector>
-
-#define GDFX_HEADER_MAGIC       "MICROSOFT*XBOX*MEDIA"
-#define GDFX_HEADER_MAGIC_LEN 	0x14
 
 using std::string;
 using std::vector;
@@ -35,7 +32,6 @@ struct GdfxFileEntry
     vector<GdfxFileEntry> files;
     DWORD address;
     DWORD fileIndex;
-    DWORD magic;
 };
 
 enum GdfxDirentAttributesutes
@@ -52,15 +48,12 @@ enum GdfxDirentAttributesutes
 // TODO: make this work with the IO interface, and Write header
 
 // read the GDFX header, seek io to position of header beforehand
-void GdfxReadHeader(BaseIO *io, GdfxHeader *header);
+void GdfxReadHeader(SvodMultiFileIO *io, GdfxHeader *header);
 
 // read the next file entry in the listing, reeturns false on listing end
-bool GdfxReadFileEntry(BaseIO *io, GdfxFileEntry *entry);
+bool GdfxReadFileEntry(SvodMultiFileIO *io, GdfxFileEntry *entry);
 
 // Write a file entry back to the listing
-void GdfxWriteFileEntry(BaseIO *io, GdfxFileEntry *entry);
-
-// order them so the directories come first
-int DirectoryFirstCompareGdfxEntries(const GdfxFileEntry &a, const GdfxFileEntry &b);
+void GdfxWriteFileEntry(SvodMultiFileIO *io, GdfxFileEntry *entry);
 
 #endif // GDFX_H

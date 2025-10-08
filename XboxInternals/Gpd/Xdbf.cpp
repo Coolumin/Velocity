@@ -11,7 +11,7 @@ Xdbf::Xdbf(string gpdPath) : ioPassedIn(false)
     readFreeMemoryTable();
 }
 
-Xdbf::Xdbf(BaseIO *io) : ioPassedIn(true), io(io)
+Xdbf::Xdbf(FileIO *io) : io(io), ioPassedIn(true)
 {
     init();
     readHeader();
@@ -21,11 +21,11 @@ Xdbf::Xdbf(BaseIO *io) : ioPassedIn(true), io(io)
 
 void Xdbf::Clean()
 {
-    /* create a temporary file to Write the old Gpd's used memory to
+    // create a temporary file to Write the old Gpd's used memory to
     string tempFileName;
 
 #ifdef _WIN32
-    // Opening a file using the path returned by tmpnam() may result in a "permission denied" error on Windows
+    // Opening a file using the path returned by tmpnam() may result in a "permission denied" error on Windows.
     // Not sure why it happens but tweaking the manifest/UAC properties makes a difference.
     char *tempFileName_c = _tempnam(NULL, NULL);
     if (!tempFileName_c)
@@ -40,45 +40,42 @@ void Xdbf::Clean()
     tempFileName = string(tempFileName_c);
 #endif
 
-    FileIO tempFile(tempFileName.c_str(), true);*/
-
-    // resize the io
-    io->Resize(0x18);
+    FileIO tempFile(tempFileName.c_str(), true);
 
     // Write the old header
-    io->SetPosition(0);
-    io->Write(header.magic);
-    io->Write(header.version);
-    io->Write(header.entryTableLength);
-    io->Write(header.entryCount);
-    io->Write(header.freeMemTableLength);
-    io->Write((DWORD)1);
+    tempFile.SetPosition(0);
+    tempFile.Write(header.magic);
+    tempFile.Write(header.version);
+    tempFile.Write(header.entryTableLength);
+    tempFile.Write(header.entryCount);
+    tempFile.Write(header.freeMemTableLength);
+    tempFile.Write((DWORD)1);
 
     // seek to the first position in the file where data can be written
-    io->SetPosition(GetRealAddress(0) - 1);
-    io->Write((BYTE)0);
+    tempFile.SetPosition(GetRealAddress(0) - 1);
+    tempFile.Write((BYTE)0);
 
-    io->Flush();
+    tempFile.Flush();
 
     // Write all of the achievements
-    WriteNewEntryGroup(&achievements, io);
+    WriteNewEntryGroup(&achievements, &tempFile);
 
     // Write all of the images
-    WriteNewEntryGroup(&images, io);
+    WriteNewEntryGroup(&images, &tempFile);
 
     // Write all of the settings
-    WriteNewEntryGroup(&settings, io);
+    WriteNewEntryGroup(&settings, &tempFile);
 
     // Write all of the title entries
-    WriteNewEntryGroup(&titlesPlayed, io);
+    WriteNewEntryGroup(&titlesPlayed, &tempFile);
 
     // Write all of the strings
-    WriteNewEntryGroup(&strings, io);
+    WriteNewEntryGroup(&strings, &tempFile);
 
     // Write all of the achievements
-    WriteNewEntryGroup(&avatarAwards, io);
+    WriteNewEntryGroup(&avatarAwards, &tempFile);
 
-    /*tempFile.Close();
+    tempFile.Close();
     io->Close();
 
     // delete the original file
@@ -89,7 +86,7 @@ void Xdbf::Clean()
 
     string path = io->GetFilePath();
     delete io;
-    io = new FileIO(path);*/
+    io = new FileIO(path);
 
     // Write the updated entry table
     WriteEntryListing();
@@ -105,7 +102,8 @@ void Xdbf::Clean()
     // clear the free memory
     freeMemory.clear();
 
-    XdbfFreeMemEntry  entry = { GetSpecifier(io->Length()), 0xFFFFFFFF - GetSpecifier(io->Length()) };
+    io->SetPosition(0, ios_base::end);
+    XdbfFreeMemEntry  entry = { GetSpecifier(io->GetPosition()), 0xFFFFFFFF - GetSpecifier(io->GetPosition()) };
     freeMemory.push_back(entry);
 
     WriteFreeMemTable();
@@ -114,7 +112,7 @@ void Xdbf::Clean()
     readEntryTable();
 }
 
-void Xdbf::WriteNewEntryGroup(XdbfEntryGroup *group, BaseIO *newIO)
+void Xdbf::WriteNewEntryGroup(XdbfEntryGroup *group, FileIO *newIO)
 {
     // iterate through all of the entries
     for (DWORD i = 0; i < group->entries.size(); i++)
@@ -125,14 +123,14 @@ void Xdbf::WriteNewEntryGroup(XdbfEntryGroup *group, BaseIO *newIO)
     WriteNewEntry(&group->syncData.entry, newIO);
 }
 
-void Xdbf::WriteNewEntryGroup(vector<XdbfEntry> *group, BaseIO *newIO)
+void Xdbf::WriteNewEntryGroup(vector<XdbfEntry> *group, FileIO *newIO)
 {
     // iterate through all of the entries
     for (DWORD i = 0; i < group->size(); i++)
         WriteNewEntry(&group->at(i), newIO);
 }
 
-void Xdbf::WriteNewEntry(XdbfEntry *entry, BaseIO *newIO)
+void Xdbf::WriteNewEntry(XdbfEntry *entry, FileIO *newIO)
 {
     // read in the entry data
     BYTE *buffer = new BYTE[entry->length];
@@ -498,7 +496,6 @@ DWORD Xdbf::AllocateMemory(DWORD size)
         if (freeMemory.at(index).length >= size)
             break;
     }
-    
     // if the memory wasn't found in the table, then we need to append it to the file
     if (index == (freeMemory.size() - 1))
     {

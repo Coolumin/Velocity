@@ -68,7 +68,7 @@ void GpdUploader::uploadGpd(QString gamePath, QString awardPath, QString titleID
 
             for (DWORD x = 0; x < agpd.avatarAwards.size(); x++)
             {
-                struct AvatarAward award = agpd.avatarAwards.at(x);
+                AvatarAwardData award = agpd.avatarAwards.at(x);
                 AssetGender g = AvatarAwardGpd::GetAssetGender(&award);
 
                 // lock all awards
@@ -153,12 +153,12 @@ void GpdUploader::reply(QNetworkReply *reply)
     if (reply->error() || reply->bytesAvailable() < 1)
     {
         failures++;
-        qDebug() << "error occured: " << reply->errorString();
+        qDebug() << "error occurred: " << reply->errorString();
     }
     else
     {
         success++;
-        qDebug() << "response recieved: " + reply->readAll();
+        qDebug() << "response received: " + reply->readAll();
     }
 
     // begin the next request, if there is one
@@ -188,7 +188,7 @@ void GpdUploader::sendRequest(QString filePath, QString awardFilePath, QString g
         if (awardFilePath != "")
             awardFile.open(QIODevice::ReadWrite);
 
-        // initialize boundrary
+        // initialize boundary
         QString boundary = "-----------------------------7d935033608e2";
 
         // byte array to be sent in POST

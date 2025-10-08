@@ -25,18 +25,18 @@ void AvatarAwardGpd::init()
         avatarAwards.push_back(readAvatarAwardEntry(xdbf->avatarAwards.entries.at(i)));
 }
 
-AssetGender AvatarAwardGpd::GetAssetGender(struct AvatarAward *award)
+AssetGender AvatarAwardGpd::GetAssetGender(AvatarAwardData *award)
 {
     return (AssetGender)((award->awardFlags & 0x0000000300000000) >> 32);
 }
 
-struct AvatarAward AvatarAwardGpd::readAvatarAwardEntry(XdbfEntry entry)
+AvatarAwardData AvatarAwardGpd::readAvatarAwardEntry(XdbfEntry entry)
 {
     // make sure the entry passed in is an avatar award
     if (entry.type != AvatarAward)
         throw string("Gpd: Error reading avatar award, specified entry isn't an award.\n");
 
-    struct AvatarAward award;
+    AvatarAwardData award;
     award.entry = entry;
 
     // seek to the address of the award
@@ -63,7 +63,8 @@ struct AvatarAward AvatarAwardGpd::readAvatarAwardEntry(XdbfEntry entry)
     award.lockedDescription = io->ReadWString();
 
     // calculate the initial size of the entry
-    award.initialSize = 0x2C + ((award.name.size() + award.unlockedDescription.size() + award.lockedDescription.size() + 3) * 2);
+    award.initialSize = 0x2C + ((award.name.size() + award.unlockedDescription.size() +
+            award.lockedDescription.size() + 3) * 2);
 
     return award;
 }
@@ -87,16 +88,17 @@ void AvatarAwardGpd::UnlockAllAwards()
     io->Flush();
 }
 
-string AvatarAwardGpd::GetGUID(struct AvatarAward *award)
+string AvatarAwardGpd::GetGUID(AvatarAwardData *award)
 {
     char guid[38];
     WORD *seg = (WORD*)&award->awardFlags;
-    sprintf(guid, "%08x-%04x-%04x-%04x-%04x%08x", award->clothingType, seg[3], seg[2], seg[1], seg[0], award->titleID);
+    sprintf(guid, "%08x-%04x-%04x-%04x-%04x%08x", static_cast<unsigned int>(award->clothingType), seg[3], seg[2], seg[1], seg[0],
+            static_cast<unsigned int>(award->titleID));
 
     return string(guid);
 }
 
-string AvatarAwardGpd::getAwardImageURL(struct AvatarAward *award, bool little)
+string AvatarAwardGpd::getAwardImageURL(AvatarAwardData *award, bool little)
 {
     stringstream url;
     url << "http://avatar.xboxlive.com/global/t.";
@@ -107,19 +109,20 @@ string AvatarAwardGpd::getAwardImageURL(struct AvatarAward *award, bool little)
     return url.str();
 }
 
-string AvatarAwardGpd::GetLittleAwardImageURL(struct AvatarAward *award)
+string AvatarAwardGpd::GetLittleAwardImageURL(AvatarAwardData *award)
 {
     return getAwardImageURL(award, true);
 }
 
-string AvatarAwardGpd::GetLargeAwardImageURL(struct AvatarAward *award)
+string AvatarAwardGpd::GetLargeAwardImageURL(AvatarAwardData *award)
 {
     return getAwardImageURL(award, false);
 }
 
-void AvatarAwardGpd::WriteAvatarAward(struct AvatarAward *award)
+void AvatarAwardGpd::WriteAvatarAward(AvatarAwardData *award)
 {
-    DWORD calculatedLength = 0x2C + ((award->name.size() + award->unlockedDescription.size() + award->lockedDescription.size() + 3) * 2);
+    DWORD calculatedLength = 0x2C + ((award->name.size() + award->unlockedDescription.size() +
+            award->lockedDescription.size() + 3) * 2);
 
     if (calculatedLength != award->initialSize)
     {
@@ -157,12 +160,14 @@ void AvatarAwardGpd::WriteAvatarAward(struct AvatarAward *award)
     io->Flush();
 }
 
-void AvatarAwardGpd::CreateAvatarAward(struct AvatarAward *award)
+void AvatarAwardGpd::CreateAvatarAward(AvatarAwardData *award)
 {
-    award->initialSize = 0x2C + ((award->name.size() + award->unlockedDescription.size() + award->lockedDescription.size() + 3) * 2);
+    award->initialSize = 0x2C + ((award->name.size() + award->unlockedDescription.size() +
+            award->lockedDescription.size() + 3) * 2);
 
     // create a new xdbf entry for the award
-    UINT64 entryID = ((UINT64)award->titleID << 32) | ((DWORD)getNextAwardIndex() << 16) | GetAssetGender(award);
+    UINT64 entryID = ((UINT64)award->titleID << 32) | ((DWORD)getNextAwardIndex() << 16) |
+            GetAssetGender(award);
     award->entry = xdbf->CreateEntry(AvatarAward, entryID, award->initialSize);
 
     // Write the award to the file
@@ -171,7 +176,7 @@ void AvatarAwardGpd::CreateAvatarAward(struct AvatarAward *award)
     avatarAwards.push_back(*award);
 }
 
-void AvatarAwardGpd::DeleteAvatarAward(struct AvatarAward *award)
+void AvatarAwardGpd::DeleteAvatarAward(AvatarAwardData *award)
 {
     // remove the entry from the list
     DWORD i;

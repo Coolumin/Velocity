@@ -22,7 +22,7 @@
 #include "Gpd/DashboardGpd.h"
 #include "Gpd/GameGpd.h"
 #include "Gpd/AvatarAwardGpd.h"
-#include "AvatarAsset/AvatarAssetDefinintions.h"
+#include "AvatarAsset/AvatarAssetDefinitions.h"
 #include "Account/Account.h"
 #include "Account/AccountHelpers.h"
 
@@ -36,7 +36,8 @@
 
 using namespace std;
 
-namespace Ui {
+namespace Ui
+{
 class ProfileEditor;
 }
 
@@ -185,20 +186,19 @@ enum State
     StateUnlockedOnline
 };
 
-Q_DECLARE_METATYPE( struct AvatarAward* )
+Q_DECLARE_METATYPE( AvatarAwardData* )
 
 class ProfileEditor : public QDialog
 {
     Q_OBJECT
-    
+
 public:
-    explicit ProfileEditor(QStatusBar *statusBar, StfsPackage *profile, bool dispose, QWidget *parent = 0);
+    explicit ProfileEditor(QStatusBar *statusBar, StfsPackage *profile, bool dispose,
+            QWidget *parent = 0);
     ~ProfileEditor();
 
     bool isOk();
-    
-    bool isOk();
-    
+
 private slots:
     void on_gamesList_itemSelectionChanged();
 
@@ -276,6 +276,8 @@ private:
     vector<GameEntry> games;
     vector<AvatarAwardGameEntry> aaGames;
 
+    string pecTempPath;
+    string dashGpdTempPath;
     string accountTempPath;
 
     bool dispose;
@@ -289,7 +291,8 @@ private:
     QString assetSavePath;
 
     void addToDashGpd(SettingEntry *entry, SettingEntryType type, UINT64 id);
-    void updateAvatarAward(TitleEntry *entry, AvatarAwardGpd *gpd, struct AvatarAward *award, State toSet);
+    void updateAvatarAward(TitleEntry *entry, AvatarAwardGpd *gpd, AvatarAwardData *award,
+            State toSet);
     void updateAchievement(TitleEntry *entry, AchievementEntry *chiev, State toSet, GameGpd *gpd);
     State getStateFromFlags(DWORD flags);
     void saveAll();

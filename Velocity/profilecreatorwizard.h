@@ -22,18 +22,19 @@
 
 #include "Binaries/femaleAvatar.h"
 
-namespace Ui {
+namespace Ui
+{
 class ProfileCreatorWizard;
 }
 
 class ProfileCreatorWizard : public QWizard
 {
     Q_OBJECT
-    
+
 public:
     explicit ProfileCreatorWizard(QStatusBar *statusBar, QWidget *parent = 0);
     ~ProfileCreatorWizard();
-    
+
 private slots:
     void onCurrentIdChanged(int id);
 

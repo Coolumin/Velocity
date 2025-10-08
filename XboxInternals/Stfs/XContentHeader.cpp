@@ -5,13 +5,11 @@
 
 using namespace std;
 
-XContentHeader::XContentHeader(BaseIO *io, DWORD flags) :
-    installerType((InstallerType)0), flags(flags)
+XContentHeader::XContentHeader(BaseIO *io, DWORD flags) : installerType((InstallerType)0),
+    flags(flags)
 {
-	// set the io
-	this->io = io;
-
-    fileSize = io->Length();
+    // set the io
+    this->io = io;
 
     if ((flags & MetadataSkipRead) == 0)
         readMetadata();
@@ -118,6 +116,9 @@ void XContentHeader::readMetadata()
 
             io->ReadBytes(guid, 0x10);
             skeletonVersion = (SkeletonVersion)io->ReadByte();
+
+            if (skeletonVersion < 1 || skeletonVersion > 3)
+                throw string("XContentHeader: Invalid skeleton version.");
         }
         else if (contentType == Video) // there may be other content types with this metadata
         {
@@ -155,14 +156,8 @@ void XContentHeader::readMetadata()
         io->ReadBytes(thumbnailImage, thumbnailImageSize);
         io->SetPosition(0x571A);
 
-        if (thumbnailImageSize == 0 || thumbnailImage[0] == 0)
-            thumbnailImage = NULL;
-
         io->ReadBytes(titleThumbnailImage, titleThumbnailImageSize);
         io->SetPosition(0x971A);
-
-        if (titleThumbnailImageSize == 0 || titleThumbnailImage[0] == 0)
-            thumbnailImage = NULL;
 
         if (((headerSize + 0xFFF) & 0xFFFFF000) - 0x971A < 0x15F4)
             return;
@@ -210,10 +205,10 @@ void XContentHeader::readMetadata()
                 throw string("XContentHeader: Invalid Installer Type value.");
         }
 
-    #ifdef DEBUG
+#ifdef DEBUG
         if(metaDataVersion != 2)
             throw string("XContentHeader: Metadata version is not 2.\n");
-    #endif
+#endif
     }
     else
     {
@@ -258,10 +253,9 @@ void XContentHeader::FixHeaderHash()
     io->ReadBytes(data, realHeaderSize);
 
     // hash the data
-    Botan::SHA_160 sha1;
-    sha1.clear();
-    sha1.update(data, realHeaderSize);
-    sha1.final(headerHash);
+    const auto sha1 = Botan::HashFunction::create_or_throw("SHA-1");
+    sha1->update(data, realHeaderSize);
+    sha1->final(headerHash);
 
     delete[] data;
 
@@ -528,13 +522,12 @@ void XContentHeader::ResignHeader(BaseIO& kvIo)
     XeCrypt::BnQw_SwapDwQwLeBe(qData, 0x40);
 
     // get the keys ready for signing
-
-    Botan::BigInt n = Botan::BigInt::decode(nData, 0x80);
-    Botan::BigInt p = Botan::BigInt::decode(pData, 0x40);
-    Botan::BigInt q = Botan::BigInt::decode(qData, 0x40);
+    Botan::BigInt n(nData, 0x80);
+    Botan::BigInt p(pData, 0x40);
+    Botan::BigInt q(qData, 0x40);
 
     Botan::AutoSeeded_RNG rng;
-    Botan::RSA_PrivateKey pkey(rng, p, q, 0x10001, 0, n);
+    Botan::RSA_PrivateKey pkey(p, q, 0x10001, 0, n);
 
     // Write the console id
     io->SetPosition(consoleIDLoc);
@@ -546,10 +539,9 @@ void XContentHeader::ResignHeader(BaseIO& kvIo)
     io->ReadBytes(buffer, realHeaderSize);
 
     // hash the header
-    Botan::SHA_160 sha1;
-    sha1.clear();
-    sha1.update(buffer, realHeaderSize);
-    sha1.final(headerHash);
+    const auto sha1 = Botan::HashFunction::create_or_throw("SHA-1");
+    sha1->update(buffer, realHeaderSize);
+    sha1->final(headerHash);
 
     delete[] buffer;
 
@@ -561,19 +553,20 @@ void XContentHeader::ResignHeader(BaseIO& kvIo)
     BYTE *dataToSign = new BYTE[size];
     io->ReadBytes(dataToSign, size);
 
-    Botan::PK_Signer signer(pkey, "EMSA3(SHA-160)");
+    Botan::PK_Signer signer(pkey, rng, "EMSA3(SHA-1)");
 
-    Botan::SecureVector<Botan::byte> signature = signer.sign_message((unsigned char*)dataToSign, size, rng);
+    auto signature = signer.sign_message((unsigned char*)dataToSign, size,
+            rng);
 
     // 8 byte swap the new signature
-    XeCrypt::BnQw_SwapDwQwLeBe(signature, 0x80);
+    XeCrypt::BnQw_SwapDwQwLeBe(signature.data(), 0x80);
 
     // reverse the new signature every 8 bytes
     for (int i = 0; i < 0x10; i++)
         FileIO::ReverseGenericArray(&signature[i * 8], 1, 8);
 
     // Write the certficate
-    memcpy(certificate.signature, signature, 0x80);
+    memcpy(certificate.signature, signature.data(), 0x80);
     WriteCertificate();
 
     delete[] dataToSign;

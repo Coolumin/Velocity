@@ -20,10 +20,12 @@ ProfileCreatorWizard::ProfileCreatorWizard(QStatusBar *statusBar, QWidget *paren
 
     // generate profile ID
     profileID = 0xE000000000000000;
-    srand(time(NULL));
-    profileID |= ((UINT64)rand() & 0xFFFF) + (((UINT64)rand() & 0xFFFF) + (((UINT64)rand() & 0xFFFF) << 32));
+    srand(time(nullptr));
+    profileID |= ((UINT64)rand() & 0xFFFF) + (((UINT64)rand() & 0xFFFF) + (((
+                UINT64)rand() & 0xFFFF) << 32));
 
-    ui->lblSavePath->setText(QtHelpers::DefaultLocation().replace("\\", "/") + "/" + QString::number(profileID, 16).toUpper());
+    ui->lblSavePath->setText(QtHelpers::DefaultLocation().replace("\\",
+            "/") + "/" + QString::number(profileID, 16).toUpper());
 
     ui->listWidget->item(0)->setSelected(true);
     ui->listWidget->setCurrentItem(ui->listWidget->item(0));
@@ -89,7 +91,8 @@ void ProfileCreatorWizard::onFinished(int status)
         newProfile.metaData->WriteMetaData();
 
         // create the account file
-        QString accountTempPath = QDir::tempPath() + "/" + QUuid::createUuid().toString().replace("{", "").replace("}", "").replace("-", "");
+        QString accountTempPath = QDir::tempPath() + "/" + QUuid::createUuid().toString().replace("{",
+                "").replace("}", "").replace("-", "");
 
         FileIO accountIo(accountTempPath.toStdString(), true);
 
@@ -98,7 +101,8 @@ void ProfileCreatorWizard::onFinished(int status)
         accountIo.Close();
 
         // Write the gamertag, and encrypt the file
-        Account account(accountTempPath.toStdString(), false, newProfile.metaData->certificate.ownerConsoleType);
+        Account account(accountTempPath.toStdString(), false,
+                newProfile.metaData->certificate.ownerConsoleType);
         account.SetGamertag(ui->txtGamertag->text().toStdWString());
         account.Save(newProfile.metaData->certificate.ownerConsoleType);
 
@@ -106,12 +110,13 @@ void ProfileCreatorWizard::onFinished(int status)
         newProfile.InjectFile(accountTempPath.toStdString(), "Account");
 
         // make a temporary copy of the dashboard gpd
-        QString dashGpdTempPath = QDir::tempPath() + "/" + QUuid::createUuid().toString().replace("{", "").replace("}", "").replace("-", "");
-        
+        QString dashGpdTempPath = QDir::tempPath() + "/" + QUuid::createUuid().toString().replace("{",
+                "").replace("}", "").replace("-", "");
+
         if (!QFile::exists(QtHelpers::ExecutingDirectory() + "/FFFE07D1.gpd"))
         {
             QString dashGpdPath = QFileDialog::getOpenFileName(this, tr("Open Dashboard GPD"),
-                QtHelpers::DesktopLocation() + "/FFFE07D1.gpd", "Gpd File (*.gpd);;All Files (*.*)");
+                QtHelpers::DefaultLocation() + "/FFFE07D1.gpd", "Gpd File (*.gpd);;All Files (*.*)");
 
             if(dashGpdPath != "")
                 QFile::copy(dashGpdPath, dashGpdTempPath);
@@ -127,20 +132,20 @@ void ProfileCreatorWizard::onFinished(int status)
         DashboardGpd dashGpd(dashGpdTempPath.toStdString());
 
         // change the gamerpicture key
-        wstring picKey = L"fffe07d10002000" + QString::number(ui->listWidget->currentIndex().row()).toStdWString() + L"0001000" + QString::number(ui->listWidget->currentIndex().row()).toStdWString();
+        wstring picKey = L"fffe07d10002000" + QString::number(
+                    ui->listWidget->currentIndex().row()).toStdWString() + L"0001000" + QString::number(
+                    ui->listWidget->currentIndex().row()).toStdWString();
         dashGpd.gamerPictureKey.str = &picKey;
         dashGpd.WriteSettingEntry(dashGpd.gamerPictureKey);
 
         // if the avatar type is female, then we must change the avatar info setting
         if (ui->rdiFemale->isChecked())
         {
-            // read in the setting
             memcpy(dashGpd.avatarInformation.binaryData.data, ___femaleAvatar_bin, ___femaleAvatar_bin_size);
             dashGpd.avatarInformation.binaryData.length = ___femaleAvatar_bin_size;
             dashGpd.WriteSettingEntry(dashGpd.avatarInformation);
         }
 
-        // inject the image of the avatar
         QByteArray ba3;
         QBuffer buffer3(&ba3);
         buffer3.open(QIODevice::WriteOnly);
@@ -163,12 +168,14 @@ void ProfileCreatorWizard::onFinished(int status)
         newProfile.InjectFile(dashGpdTempPath.toStdString(), "FFFE07D1.gpd");
 
         // create/inject the 64x64 image
-        QString img64Path = QDir::tempPath() + "/" + QUuid::createUuid().toString().replace("{", "").replace("}", "").replace("-", "");
+        QString img64Path = QDir::tempPath() + "/" + QUuid::createUuid().toString().replace("{",
+                "").replace("}", "").replace("-", "");
         ui->listWidget->currentItem()->icon().pixmap(64, 64).save(img64Path, "PNG");
         newProfile.InjectFile(img64Path.toStdString(), "tile_64.png");
 
         // create/inject the 32x32 image
-        QString img32Path = QDir::tempPath() + "/" + QUuid::createUuid().toString().replace("{", "").replace("}", "").replace("-", "");
+        QString img32Path = QDir::tempPath() + "/" + QUuid::createUuid().toString().replace("{",
+                "").replace("}", "").replace("-", "");
         ui->listWidget->currentItem()->icon().pixmap(32, 32).save(img32Path, "PNG");
         newProfile.InjectFile(img32Path.toStdString(), "tile_32.png");
 
@@ -191,7 +198,8 @@ void ProfileCreatorWizard::onFinished(int status)
     }
     catch (string error)
     {
-        QMessageBox::critical(this, "Error", "An error occured while creating the profile.\n\n" + QString::fromStdString(error));
+        QMessageBox::critical(this, "Error",
+                "An error occurred while creating the profile.\n\n" + QString::fromStdString(error));
     }
 }
 
@@ -229,7 +237,7 @@ void ProfileCreatorWizard::on_txtGamertag_textChanged(const QString & /* arg1 */
 void ProfileCreatorWizard::on_pushButton_clicked()
 {
     QString fileName = QFileDialog::getSaveFileName(this, "Choose a place to create the profile",
-        QtHelpers::DefaultLocation().replace("\\", "/") + "/" + QString::number(profileID, 16).toUpper());
+            QtHelpers::DefaultLocation().replace("\\", "/") + "/" + QString::number(profileID, 16).toUpper());
 
     if (fileName != "")
         ui->lblSavePath->setText(fileName);

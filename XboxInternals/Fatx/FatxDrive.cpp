@@ -4,15 +4,16 @@
 #include "FatxDrive.h"
 
 #ifdef _WIN32
-    #include <Windows.h>
-    #undef DeleteFile
-    #undef ReplaceFile
+#define WIN32_LEAN_AND_MEAN
+#include <Windows.h>
+#undef DeleteFile
+#undef ReplaceFile
 #else
-    #include <fcntl.h>
-    #include <sys/types.h>
-    #include <sys/ioctl.h>
-    #include <sys/stat.h>
-    #include <unistd.h>
+#include <fcntl.h>
+#include <sys/types.h>
+#include <sys/ioctl.h>
+#include <sys/stat.h>
+#include <unistd.h>
 #endif
 
 FatxDrive::FatxDrive(std::string drivePath, FatxDriveType type)  : type(type)
@@ -35,7 +36,7 @@ FatxDrive::FatxDrive(std::wstring drivePath, FatxDriveType type) : type(type)
     loadFatxDrive(drivePath);
 }
 
-#ifdef __WIN32
+#ifdef _WIN32
 FatxDrive::FatxDrive(void* deviceHandle, FatxDriveType type) : type(type)
 {
     loadFatxDrive(deviceHandle);
@@ -63,6 +64,8 @@ FatxIO FatxDrive::GetFatxIO(FatxFileEntry *entry)
 
 void FatxDrive::processBootSector(Partition *part)
 {
+    UINT64 partitionSize = part->size;
+
     // seek to the partition
     io->SetPosition(part->address);
 
@@ -92,23 +95,41 @@ void FatxDrive::processBootSector(Partition *part)
             throw std::string("FATX: Found invalid sectors per cluster.\n");
     }
 
-    part->clusterSize = part->sectorsPerCluster * FATX_SECTOR_SIZE;
-    UINT64 totalClusters = (part->size / part->clusterSize) + 1;
+    part->clusterSize = part->sectorsPerCluster << 9;
+    BYTE consecutiveZeroes = cntlzw(part->clusterSize);
+    int shiftFactor = 0x1F - consecutiveZeroes;
 
-    if ((this->type == FatxFlashDrive && part->address == UsbOffsets::Data) || totalClusters >= FAT_CLUSTER16_RESERVED)
-        part->clusterEntrySize = 4;
+    partitionSize >>= shiftFactor;
+    partitionSize++;
+
+    if ((this->type == FatxFlashDrive && part->address == UsbOffsets::Data) ||
+            partitionSize >= FAT_CLUSTER16_RESERVED)
+        part->fatEntryShift = 2;
     else
-        part->clusterEntrySize = 2;
+        part->fatEntryShift = 1;
 
+    partitionSize <<= part->fatEntryShift;
+    partitionSize += 0x1000;
+    partitionSize--;
 
-    // https://docs.google.com/presentation/d/1LJLFRMAbCm9RBPg0l241GjwWdjGWROlihVgrC7pzLwg/edit?usp=sharing
-    // go to slide 11 for a good visual to make sense of this
-    UINT64 chainmapSize = Utils::RoundToNearestHex1000((part->size / part->clusterSize + 1) * part->clusterEntrySize);
-    UINT64 totalDataSize = (part->size - FATX_HEADER_SIZE - chainmapSize);
+    UINT64 clusters = part->size;
+    clusters -= 0x1000;
 
-    part->clusterCount = totalDataSize / part->clusterSize;
-    part->chainmapSize = chainmapSize;
-    part->clusterStartingAddress = part->address + FATX_HEADER_SIZE + chainmapSize;
+    partitionSize &= ~0xFFF;
+    partitionSize &= 0xFFFFFFFF;
+
+    if (clusters < partitionSize)
+        throw std::string("FATX: Volume too small to hold the FAT.\n");
+
+    clusters -= partitionSize;
+    clusters >>= (shiftFactor & 0xFFFFFFFFFFFFFF);
+    if (clusters > 0xFFFFFFF)
+        throw std::string("FATX: Too many clusters.\n");
+
+    part->clusterCount = clusters;
+    part->allocationTableSize = partitionSize;
+    part->clusterEntrySize = part->fatEntryShift * 2;
+    part->clusterStartingAddress = part->address + (INT64)partitionSize + 0x1000;
     part->lastFreeClusterFound = 1;
     part->freeMemory = 0;
 
@@ -184,7 +205,8 @@ void FatxDrive::CreateFileX(FatxFileEntry *parent, std::string name)
     createFileEntry(parent, &newEntry);
 }
 
-FatxFileEntry* FatxDrive::createFileEntry(FatxFileEntry *parent, FatxFileEntry *newEntry, bool errorIfAlreadyExists)
+FatxFileEntry* FatxDrive::createFileEntry(FatxFileEntry *parent, FatxFileEntry *newEntry,
+        bool errorIfAlreadyExists)
 {
     if (!(parent->fileAttributes & FatxDirectory))
         throw std::string("FATX: Parent file entry is not a directory.\n");
@@ -211,11 +233,7 @@ FatxFileEntry* FatxDrive::createFileEntry(FatxFileEntry *parent, FatxFileEntry *
             if (parent->cachedFiles.at(i).nameLen != FATX_ENTRY_DELETED)
             {
                 if (errorIfAlreadyExists)
-                {
-                    std::stringstream errorText;
-                    errorText << "FATX: Entry \"" << newEntry->path << newEntry->name << "\" already exists.\n";
-                    throw errorText.str();
-                }
+                    throw std::string("FATX: Entry already exists.\n");
                 else
                     return NULL;
             }
@@ -288,8 +306,12 @@ FatxFileEntry* FatxDrive::CreatePath(std::string folderPath)
 
     for (size_t i = 2; i < elems.size(); i++)
     {
-        if (GetFileEntry(currentPath + "\\" + elems.at(i)) == NULL)
-            lastEntry = CreateFolder(GetFileEntry(currentPath), elems.at(i));
+        FatxFileEntry newEntry;
+        newEntry.fileSize = FATX_ENTRY_SIZE;
+        newEntry.name = elems.at(i);
+        newEntry.fileAttributes = FatxDirectory;
+
+        lastEntry = this->createFileEntry(GetFileEntry(currentPath), &newEntry, false);
         currentPath += "\\" + elems.at(i);
     }
 
@@ -298,10 +320,6 @@ FatxFileEntry* FatxDrive::CreatePath(std::string folderPath)
 
 void FatxDrive::RemoveFile(FatxFileEntry *entry, void(*progress)(void*), void *arg)
 {
-    // check if the file is already deleted
-    if (entry->nameLen == FATX_ENTRY_DELETED)
-        return;
-
     // read the data
     GetChildFileEntries(entry);
     ReadClusterChain(entry);
@@ -311,7 +329,8 @@ void FatxDrive::RemoveFile(FatxFileEntry *entry, void(*progress)(void*), void *a
 
     // set all the clusters to available
     entry->clusterChain.push_back(entry->startingCluster);
-    FatxIO::SetAllClusters(static_cast<DeviceIO*>(io), entry->partition, entry->clusterChain, FAT_CLUSTER_AVAILABLE);
+    FatxIO::SetAllClusters(static_cast<DeviceIO*>(io), entry->partition, entry->clusterChain,
+            FAT_CLUSTER_AVAILABLE);
 
     // generate cluster ranges for fast insertion into the cluster chain
     std::vector<Range> clusterRanges;
@@ -331,17 +350,17 @@ void FatxDrive::RemoveFile(FatxFileEntry *entry, void(*progress)(void*), void *a
     // update the entry file name lenght to deleted
     io->SetPosition(entry->address);
     io->Write((BYTE)FATX_ENTRY_DELETED);
-    io->Flush();
 
     if (progress)
         progress(arg);
 }
 
-void FatxDrive::InjectFile(FatxFileEntry *parent, std::string name, std::string filePath, void (*progress)(void *, DWORD, DWORD), void *arg)
+void FatxDrive::InjectFile(FatxFileEntry *parent, std::string name, std::string filePath,
+        void (*progress)(void *, DWORD, DWORD), void *arg)
 {
     UINT64 fileLength = 0;
 
-#if __WIN32
+#if _WIN32
     // TODO: put windows file length code here
 #else
     struct stat fileInfo;
@@ -384,13 +403,6 @@ void FatxDrive::GetFileEntryMagic(FatxFileEntry *entry)
 
     io->SetPosition(FatxIO::ClusterToOffset(entry->partition, entry->startingCluster));
     entry->magic = io->ReadDword();
-
-    // get the file system if possible
-    if (entry->fileSize >= 0x3AD)
-    {
-        io->SetPosition(FatxIO::ClusterToOffset(entry->partition, entry->startingCluster) + 0x3AC);
-        entry->fileSystem = (FileSystem)io->ReadByte();
-    }
 }
 
 void FatxDrive::GetChildFileEntries(FatxFileEntry *entry, void(*progress)(void*, bool), void *arg)
@@ -445,15 +457,9 @@ void FatxDrive::GetChildFileEntries(FatxFileEntry *entry, void(*progress)(void*,
                 subtract = false;
             }
 
-            // if the name is invalid, then the entry must be corrupt so we'll skip to the next entry
-            if (!ValidFileName(newEntry.name))
-            {
-                io->SetPosition((io->GetPosition() + 0x3F) & 0xFFFFFFFFFFFFFFC0);
-                continue;
-            }
-
             // seek past the name
-            io->SetPosition(io->GetPosition() + (FATX_ENTRY_MAX_NAME_LENGTH - newEntry.name.length()) - subtract);
+            io->SetPosition(io->GetPosition() + (FATX_ENTRY_MAX_NAME_LENGTH - newEntry.name.length()) -
+                    subtract);
 
             // read the rest of the entry information
             newEntry.startingCluster = io->ReadDword();
@@ -561,10 +567,11 @@ void FatxDrive::CreateBackup(std::string outPath, void (*progress)(void *, DWORD
 
     outBackup.Close();
 
-    delete buffer;
+    delete[] buffer;
 }
 
-void FatxDrive::RestoreFromBackup(std::string backupPath, void (*progress)(void *, DWORD, DWORD), void *arg)
+void FatxDrive::RestoreFromBackup(std::string backupPath, void (*progress)(void *, DWORD, DWORD),
+        void *arg)
 {
     /* Here's the thing... fstream is trash. It will only handle files up to 2GB or 4GB,
        at least on my windows 7 machine. That's a huge problem because drive backups will
@@ -578,10 +585,11 @@ void FatxDrive::RestoreFromBackup(std::string backupPath, void (*progress)(void 
     BYTE *buffer = new BYTE[0x100000];
     UINT64 bytesLeft;
 
-#ifdef __WIN32
+#ifdef _WIN32
     std::wstring wBackupPath;
     wBackupPath.assign(backupPath.begin(), backupPath.end());
-    HANDLE hFile = CreateFile(wBackupPath.c_str(), GENERIC_READ, NULL, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+    HANDLE hFile = CreateFile(wBackupPath.c_str(), GENERIC_READ, 0, NULL, OPEN_EXISTING,
+            FILE_ATTRIBUTE_NORMAL, NULL);
 
     if (hFile == INVALID_HANDLE_VALUE)
         throw std::string("FATX: Could not open drive backup.");
@@ -609,7 +617,7 @@ void FatxDrive::RestoreFromBackup(std::string backupPath, void (*progress)(void 
     DWORD i = 0;
     while (bytesLeft >= 0x100000)
     {
-#ifdef __WIN32
+#ifdef _WIN32
         high = (i * (UINT64)0x100000) >> 32;
         SetFilePointer(hFile, (i * (UINT64)0x100000) & 0xFFFFFFFF, (PLONG)&high, FILE_BEGIN);
 
@@ -628,7 +636,7 @@ void FatxDrive::RestoreFromBackup(std::string backupPath, void (*progress)(void 
 
     if (bytesLeft > 0)
     {
-#ifdef __WIN32
+#ifdef _WIN32
         SetFilePointer(hFile, (i * (UINT64)0x100000) & 0xFFFFFFFF, (PLONG)&high, FILE_BEGIN);
         ReadFile(hFile, buffer, bytesLeft, &high, NULL);
 #else
@@ -641,7 +649,7 @@ void FatxDrive::RestoreFromBackup(std::string backupPath, void (*progress)(void 
     if (progress)
         progress(arg, totalProgress, totalProgress);
 
-#ifdef __WIN32
+#ifdef _WIN32
     CloseHandle(hFile);
 #else
     close(backupFile);
@@ -732,17 +740,6 @@ FatxDrive::~FatxDrive()
     delete io;
 }
 
-bool FatxDrive::operator==(FatxDrive &other) const
-{
-    if (type != other.type)
-        return false;
-
-    if (type == FatxHarddrive)
-        return securityBlob.modelNumber == other.securityBlob.modelNumber;
-    else
-        return memcmp(configurationData.deviceID, other.configurationData.deviceID, 0x14) == 0;
-}
-
 void FatxDrive::loadProfiles()
 {
     // the general path for profiles is Drive:\Content\Content\OFFLINE_XUID\FFFE07D1\00010000\OFFLINE_XUID
@@ -806,13 +803,13 @@ void FatxDrive::loadFatxDrive(std::wstring drivePath)
             ss.str(std::string());
         }
 
-        io = new JoinedMultiFileIO(dataFiles);
+        io = new MultiFileIO(dataFiles);
     }
 
     loadFatxDrive();
 }
 
-#ifdef __WIN32
+#ifdef _WIN32
 void FatxDrive::loadFatxDrive(void* deviceHandle)
 {
     // open the device io
@@ -880,7 +877,8 @@ void FatxDrive::loadFatxDrive()
     }
 
     // Eaton determined this was a version struct and figured out the minimum version
-    if (lastFormatRecoveryVersion.major == 2 && lastFormatRecoveryVersion.build >= 1525 && lastFormatRecoveryVersion.revision >= 1)
+    if (lastFormatRecoveryVersion.major == 2 && lastFormatRecoveryVersion.build >= 1525 &&
+            lastFormatRecoveryVersion.revision >= 1)
     {
         Partition *content = new Partition;
         content->address = (UINT64)io->ReadDword() * FAT_SECTOR_SIZE;
@@ -899,14 +897,18 @@ void FatxDrive::loadFatxDrive()
     {
         // system extended partition initialization
         Partition *systemExtended = new Partition;
-        systemExtended->address = (type == FatxHarddrive) ? +HddOffsets::SystemExtended : +UsbOffsets::SystemExtended;
-        systemExtended->size = (type == FatxHarddrive) ? +HddSizes::SystemExtended : +UsbSizes::SystemExtended;
+        systemExtended->address = (type == FatxHarddrive) ? +HddOffsets::SystemExtended :
+                +UsbOffsets::SystemExtended;
+        systemExtended->size = (type == FatxHarddrive) ? +HddSizes::SystemExtended :
+                +UsbSizes::SystemExtended;
         systemExtended->name = "System Extended";
 
         // system auxiliary partition initialization
         Partition *systemAuxiliary = new Partition;
-        systemAuxiliary->address = (type == FatxHarddrive) ? +HddOffsets::SystemAuxiliary : +UsbOffsets::SystemAuxiliary;
-        systemAuxiliary->size = (type == FatxHarddrive) ? +HddSizes::SystemAuxiliary : +UsbSizes::SystemAuxiliary;
+        systemAuxiliary->address = (type == FatxHarddrive) ? +HddOffsets::SystemAuxiliary :
+                +UsbOffsets::SystemAuxiliary;
+        systemAuxiliary->size = (type == FatxHarddrive) ? +HddSizes::SystemAuxiliary :
+                +UsbSizes::SystemAuxiliary;
         systemAuxiliary->name = "System Auxiliary";
 
         if (type == FatxHarddrive)
@@ -921,7 +923,8 @@ void FatxDrive::loadFatxDrive()
 
         // system cache partition initialization
         Partition *systemCache = new Partition;
-        systemCache->address = (type == FatxHarddrive) ? +HddOffsets::SystemCache : +UsbOffsets::SystemCache;
+        systemCache->address = (type == FatxHarddrive) ? +HddOffsets::SystemCache :
+                +UsbOffsets::SystemCache;
         systemCache->size = (type == FatxHarddrive) ? +HddSizes::SystemCache : +UsbSizes::SystemCache;
         systemCache->name = "System Cache";
 
@@ -954,7 +957,7 @@ void FatxDrive::loadFatxDrive()
     }
 }
 
-UINT64 FatxDrive::GetFreeMemory(Partition *part, void(*progress)(void*, bool), void *arg, bool finish)
+UINT64 FatxDrive::GetFreeMemory(Partition *part, void(*progress)(void*, bool), void *arg)
 {
     if (part->freeMemory != 0)
         return (UINT64)part->freeClusters.size() * (UINT64)part->clusterSize;
@@ -1015,23 +1018,9 @@ UINT64 FatxDrive::GetFreeMemory(Partition *part, void(*progress)(void*, bool), v
     delete[] buffer;
 
     if (progress)
-        progress(arg, finish);
+        progress(arg, true);
 
     return part->freeMemory;
-}
-
-UINT64 FatxDrive::GetTotalSize()
-{
-    UINT64 toReturn = 0;
-    for (size_t i = 0; i < partitions.size(); i++)
-        toReturn += partitions.at(i)->size;
-
-    return toReturn;
-}
-
-UINT64 FatxDrive::GetDeviceSize()
-{
-    return io->Length();
 }
 
 void FatxDrive::ReloadDrive()
@@ -1060,13 +1049,13 @@ bool FatxDrive::FileExists(FatxFileEntry *folder, std::string fileName, bool che
         // there's a better way to do this, but...
         if (folder->cachedFiles.at(i).name == fileName)
         {
-             if (folder->cachedFiles.at(i).nameLen == FATX_ENTRY_DELETED)
-             {
-                 if (checkDeleted)
+            if (folder->cachedFiles.at(i).nameLen == FATX_ENTRY_DELETED)
+            {
+                if (checkDeleted)
                     return true;
-             }
-             else
-                 return true;
+            }
+            else
+                return true;
         }
     }
 
@@ -1122,7 +1111,8 @@ FatxFileEntry* FatxDrive::GetFileEntry(std::string filePath)
         FatxFileEntry *foundEntry = NULL;
         for (DWORD i = 0; i < parent->cachedFiles.size(); i++)
         {
-            if (parent->cachedFiles.at(i).name == fileName && parent->cachedFiles.at(i).nameLen != FATX_ENTRY_DELETED)
+            if (parent->cachedFiles.at(i).name == fileName &&
+                    parent->cachedFiles.at(i).nameLen != FATX_ENTRY_DELETED)
             {
                 foundEntry = &parent->cachedFiles.at(i);
                 break;

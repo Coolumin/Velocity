@@ -36,7 +36,8 @@
 
 Q_DECLARE_METATYPE( StfsFileEntry* )
 
-namespace Ui {
+namespace Ui
+{
 class PackageViewer;
 }
 
@@ -45,7 +46,8 @@ class PackageViewer : public QDialog
     Q_OBJECT
 
 public:
-    explicit PackageViewer(QStatusBar *statusBar, StfsPackage *package, QList<QAction*> gpdActions = QList<QAction*>(), QList<QAction*> gameActions = QList<QAction*>(), QWidget *parent = NULL, bool disposePackage = true);
+    explicit PackageViewer(QStatusBar *statusBar, StfsPackage *package, QList<QAction*> gpdActions,
+            QList<QAction*> gameActions, QWidget *parent = nullptr, bool disposePackage = true);
     ~PackageViewer();
 
 private slots:
@@ -71,7 +73,7 @@ private slots:
 
 private:
     Ui::PackageViewer *ui;
-    void PopulateTreeWidget(StfsFileListing *entry, QTreeWidgetItem *parent = NULL);
+    void PopulateTreeWidget(StfsFileListing *entry, QTreeWidgetItem *parent = nullptr);
     void GetPackagePath(QTreeWidgetItem *item, QString *out, bool folderOnly = false);
     void SetIcon(string name, StfsFileEntry *entry, QTreeWidgetItem *item);
     void GetSubFilesStfs(StfsFileListing *parent, QList<void *> &entries, QString currentPath = "");

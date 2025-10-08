@@ -30,14 +30,6 @@ SingleProgressDialog::SingleProgressDialog(FileSystem system, void *device, Oper
             setWindowTitle("Restoring from Backup");
             ui->lblIcon->setPixmap(QPixmap(":/Images/restore.png"));
             break;
-        case OpExtractAll:
-            setWindowTitle("Extracting All Files");
-            ui->lblIcon->setPixmap(QPixmap(":/Images/extract.png"));
-            break;
-        case OpExtract:
-            setWindowTitle("Extracting File");
-            ui->lblIcon->setPixmap(QPixmap(":/Images/extract.png"));
-            break;
     }
 }
 
@@ -118,25 +110,12 @@ void SingleProgressDialog::start()
                 }
                 break;
             }
-            case FileSystemISO:
-            {
-                ISO *iso = reinterpret_cast<ISO*>(device);
-                if (op == OpExtractAll)
-                {
-                    iso->ExtractAll(externalPath.toStdString(), UpdateProgress, this);
-                }
-                else if (op == OpExtract)
-                {
-                    iso->ExtractFile(externalPath.toStdString(), internalPath.toStdString(), UpdateProgress, this);
-                }
-                break;
-            }
         }
     }
     catch (string error)
     {
         QMessageBox::critical(this, "Error",
-                "An error occured during the operation.\n\n" + QString::fromStdString(error));
+                "An error occurred during the operation.\n\n" + QString::fromStdString(error));
         close();
     }
 }

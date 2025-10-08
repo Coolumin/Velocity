@@ -4,10 +4,9 @@
 #ifndef FATXCONSTANTS_H
 #define FATXCONSTANTS_H
 
-#include "../winnames.h"
+#include "../TypeDefinitions.h"
 
 #include "../Stfs/StfsDefinitions.h"
-#include "../Stfs/XContentHeader.h"
 
 #include <vector>
 #include <iostream>
@@ -22,9 +21,6 @@
 #define FATX_ENTRY_DELETED 0xE5
 
 #define FAT_SECTOR_SIZE 0x200
-
-#define FATX_HEADER_SIZE 0x1000
-#define FATX_SECTOR_SIZE 0x200
 
 #define FAT_CLUSTER_AVAILABLE (DWORD)0x00000000
 #define FAT_CLUSTER_RESERVED (DWORD)0xfffffff0
@@ -91,7 +87,6 @@ struct FatxFileEntry
     bool readDirectories;
     INT64 address;
     DWORD magic;
-    FileSystem fileSystem;
     std::vector<FatxFileEntry> cachedFiles;
     std::vector<DWORD> clusterChain;
     std::string path;
@@ -119,7 +114,8 @@ struct Partition
     DWORD clusterCount;
     DWORD clusterSize;
     UINT64 clusterStartingAddress;
-    UINT64 chainmapSize;
+    DWORD fatEntryShift;
+    UINT64 allocationTableSize;
     UINT64 freeMemory;
     std::vector<DWORD> freeClusters;
 };

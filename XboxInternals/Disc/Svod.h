@@ -1,46 +1,28 @@
 #ifndef SVOD_H
 #define SVOD_H
 
-#include "Utils.h"
 #include "IO/FileIO.h"
-#include "IO/IndexableMultiFileIO.h"
-#include "IO/LocalIndexableMultiFileIO.h"
-#include "IO/FatxIndexableMultiFileIO.h"
-#include "IO/SvodIO.h"
-#include "IO/FatxIO.h"
+#include "IO/SvodMultiFileIO.h"
 #include "Gdfx.h"
 #include "Stfs/XContentHeader.h"
-#include "Stfs/IXContentHeader.h"
-#include "Fatx/FatxDrive.h"
-
 #include <iostream>
 #include <vector>
+#include "IO/SvodIO.h"
 #include <algorithm>
-
-#include "botan/botan.h"
-#include "botan/sha160.h"
-
-#ifdef __WIN32
-    #include "Shlwapi.h"
-#else
-    #include <sys/types.h>
-    #include <sys/stat.h>
-    #include <unistd.h>
-#endif
+#include <botan_all.h>
 
 #include "XboxInternals_global.h"
 
 using std::string;
 using std::vector;
 
-class XBOXINTERNALSSHARED_EXPORT SVOD : public IXContentHeader
+class XBOXINTERNALSSHARED_EXPORT SVOD
 {
 public:
-    static std::vector<std::string> GetDataFilePaths(std::string rootDescriptorPath);
-
-    SVOD(string rootFile, FatxDrive *drive = NULL, bool readFileListing = true);
+    SVOD(string rootFile);
     ~SVOD();
 
+    XContentHeader *metadata;
     vector<GdfxFileEntry> root;
 
     // get a SvodIO for the given entry
@@ -64,19 +46,13 @@ public:
     // get the total number of sectors in the system
     DWORD GetSectorCount();
 
-    std::string GetContentName();
-
-    void GetFileListing();
-
 private:
     string contentDirectory;
-    IndexableMultiFileIO *io;
-    BaseIO *rootFile;
+    SvodMultiFileIO *io;
+    FileIO *rootFile;
     GdfxHeader header;
     DWORD baseAddress;
     DWORD offset;
-    FatxDrive *drive;
-    bool didReadFileListing;
 
     // parse the file listing
     void ReadFileListing(vector<GdfxFileEntry> *entryList, DWORD sector, int size, string path);
@@ -88,6 +64,6 @@ private:
     void HashBlock(BYTE *block, BYTE *outHash);
 };
 
-
+int compareFileEntries(GdfxFileEntry a, GdfxFileEntry b);
 
 #endif // SVOD_H

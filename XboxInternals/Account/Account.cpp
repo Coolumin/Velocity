@@ -1,7 +1,7 @@
 #include "Account.h"
 
-Account::Account(std::string path, bool decrypt, ConsoleType type) :
-    freeIO(true), decrypt(decrypt), path(path), type(type)
+Account::Account(std::string path, bool decrypt, ConsoleType type) : ioPassedIn(false),
+    decrypt(decrypt), path(path), type(type)
 {
     if (decrypt)
     {
@@ -17,30 +17,12 @@ Account::Account(std::string path, bool decrypt, ConsoleType type) :
     parseFile();
 }
 
-Account::Account(BaseIO *io, bool decrypt, ConsoleType type) :
-    freeIO(false), decrypt(decrypt), path(""), type(type)
-{
-    Botan::LibraryInitializer init;
-
-    if (decrypt)
-    {
-        this->io = decryptAccount(io, type);
-    }
-    else
-    {
-        this->io = io;
-    }
-
-    parseFile();
-}
-
 void Account::parseFile()
 {
-	// seek to the begining of the file
+    // seek to the begining of the file
     io->SetPosition(0);
-    io->SetEndian(BigEndian);
 
-	// read the data
+    // read the data
     account.reservedFlags = io->ReadDword();
     account.liveFlags = io->ReadDword();
     account.gamertag = io->ReadWString(16);
@@ -59,48 +41,48 @@ void Account::parseFile()
     account.onlineDomain = io->ReadString(20);
     io->SetPosition(0x50);
     account.kerbrosRealm = io->ReadString(24);
-	
+
     io->ReadBytes(account.onlineKey, 0x10);
 }
 
 bool Account::IsPasscodeEnabled()
 {
-	return (bool)(account.reservedFlags & PasswordProtected);
+    return (bool)(account.reservedFlags & PasswordProtected);
 }
 
 bool Account::IsLiveEnabled()
 {
-	return (bool)(account.reservedFlags & LiveEnabled);
+    return (bool)(account.reservedFlags & LiveEnabled);
 }
 
 bool Account::IsRecovering()
 {
-	return (bool)(account.reservedFlags & Recovering);
+    return (bool)(account.reservedFlags & Recovering);
 }
 
 bool Account::IsParentalControlled()
 {
-	return (bool)(account.cachedUserFlags & 0x1000000);
+    return (bool)(account.cachedUserFlags & 0x1000000);
 }
 
 bool Account::IsPaymentInstrumentCreditCard()
 {
-	return (bool)(account.cachedUserFlags & 1);
+    return (bool)(account.cachedUserFlags & 1);
 }
 
 bool Account::IsXUIDOffline()
 {
-	return ((account.xuid >> 60) & 0xF) == 0xE;
+    return ((account.xuid >> 60) & 0xF) == 0xE;
 }
 
 bool Account::IsXUIDOnline()
 {
-	return ((account.xuid >> 48) & 0xFFFF) == 9;
+    return ((account.xuid >> 48) & 0xFFFF) == 9;
 }
 
 bool Account::IsValidXUID()
 {
-	return IsXUIDOffline() != IsXUIDOnline();
+    return IsXUIDOffline() != IsXUIDOnline();
 }
 
 bool Account::IsTeamXUID()
@@ -115,45 +97,45 @@ UINT64 Account::GetXUID()
 
 void Account::SetPasscodeEnabled(bool b)
 {
-	if (b)
+    if (b)
         account.reservedFlags |= PasswordProtected;
-	else
+    else
         account.reservedFlags &= (~PasswordProtected);
 }
 
 void Account::SetLiveEnabled(bool b)
 {
-	if (b)
-		account.reservedFlags |= LiveEnabled;
-	else
-	{
-		account.reservedFlags &= (~LiveEnabled);
+    if (b)
+        account.reservedFlags |= LiveEnabled;
+    else
+    {
+        account.reservedFlags &= (~LiveEnabled);
         account.serviceProvider = LiveDisabled;
-	}
+    }
 }
 
 void Account::SetRecovering(bool b)
 {
-	if (b)
+    if (b)
         account.reservedFlags |= Recovering;
-	else
+    else
         account.reservedFlags &= (~Recovering);
 }
 
 void Account::SetParentalControlled(bool b)
 {
-	if (b)
+    if (b)
         account.cachedUserFlags |= 0x1000000;
-	else
+    else
         account.cachedUserFlags &= (~0x1000000);
 }
 
 void Account::SetPaymentInstrumentCreditCard(bool b)
 {
-	if (b)
-		account.cachedUserFlags |= 1;
-	else
-		account.cachedUserFlags &= 0xFFFFFFFE;
+    if (b)
+        account.cachedUserFlags |= 1;
+    else
+        account.cachedUserFlags &= 0xFFFFFFFE;
 }
 
 void Account::SetXUIDOnline()
@@ -173,20 +155,20 @@ void Account::SetXUID(UINT64 xuid)
 
 void Account::SetSubscriptionTeir(SubscriptionTeir teir)
 {
-	account.cachedUserFlags &= (~0xF00000);
-	account.cachedUserFlags |= (teir << 20);
+    account.cachedUserFlags &= (~0xF0000);
+    account.cachedUserFlags |= (teir << 16);
 }
 
 void Account::SetCountry(XboxLiveCountry country)
 {
-	account.cachedUserFlags &= (~0xFF00);
-	account.cachedUserFlags |= (country << 8);
+    account.cachedUserFlags &= (~0xFF00);
+    account.cachedUserFlags |= (country << 8);
 }
 
 void Account::SetLanguage(ConsoleLanguage language)
 {
-	account.cachedUserFlags &= (~0x3E000000);
-	account.cachedUserFlags |= (language << 25);
+    account.cachedUserFlags &= (~0x3E000000);
+    account.cachedUserFlags |= (language << 25);
 }
 
 void Account::SetGamertag(wstring gamertag)
@@ -211,16 +193,15 @@ void Account::Save(ConsoleType type)
     encryptAccount(outPath, type, &path);
 }
 
-MemoryIO* Account::decryptAccount(BaseIO *io, ConsoleType type)
+void Account::decryptAccount(std::string encryptedPath, std::string *outPath, ConsoleType type)
 {
-    // seek to the beginning of the file
-    io->SetPosition(0);
-
+    // open the encrypted file
+    FileIO encIo(encryptedPath);
     BYTE hmacHash[0x10];
     BYTE rc4Key[0x14];
 
     // read the hash
-    io->ReadBytes(hmacHash, 0x10);
+    encIo.ReadBytes(hmacHash, 0x10);
 
     auto hmacSha1 = Botan::MessageAuthenticationCode::create_or_throw("HMAC(SHA-1)");
 
@@ -236,10 +217,10 @@ MemoryIO* Account::decryptAccount(BaseIO *io, ConsoleType type)
 
     BYTE restOfFile[0x184];
     BYTE confounder[8];
-    BYTE *payload = new BYTE[0x17C];
+    BYTE payload[0x17C];
 
     // read the rest of the file
-    io->ReadBytes(restOfFile, 0x184);
+    encIo.ReadBytes(restOfFile, 0x184);
 
     // decrypt using rc4
     const auto rc4 = Botan::StreamCipher::create_or_throw("RC4");
@@ -260,16 +241,8 @@ MemoryIO* Account::decryptAccount(BaseIO *io, ConsoleType type)
     if (memcmp(confoundPayloadHash, hmacHash, 0x10) != 0)
         throw string("Account: Account decryption failed.\n");
 
-    // create a memory stream on the decrypted data
-    return new MemoryIO(payload, 0x17C);
-}
 
-void Account::decryptAccount(std::string encryptedPath, std::string *outPath, ConsoleType type)
-{
-    FileIO encryptedIO(encryptedPath);
-    MemoryIO *decryptedIO = decryptAccount(&encryptedIO, type);
-
-    // get a temporary file path
+    // Write the payload
 #ifdef _WIN32
     // Opening a file using the path returned by tmpnam() may result in a "permission denied" error on Windows.
     // Not sure why it happens but tweaking the manifest/UAC properties makes a difference.
@@ -286,20 +259,13 @@ void Account::decryptAccount(std::string encryptedPath, std::string *outPath, Co
     *outPath = string(outPath_c);
 #endif
 
-    // get the decrypted data
-    BYTE decryptedData[0x17C];
-    decryptedIO->SetPosition(0);
-    decryptedIO->ReadBytes(decryptedData, 0x17C);
-
-    // write the decrypted data to the temporary file
-    FileIO decryptedFileIO(*outPath, true);
-    decryptedFileIO.Write(decryptedData, 0x17C);
-    decryptedFileIO.Flush();
+    FileIO decrypted(*outPath, true);
+    decrypted.Write(payload, 0x17C);
+    decrypted.Flush();
 
     // cleanup
-    decryptedFileIO.Close();
-    decryptedIO->Close();
-    delete decryptedIO;
+    decrypted.Close();
+    encIo.Close();
 }
 
 void Account::encryptAccount(std::string decryptedPath, ConsoleType type, std::string *outPath)
@@ -372,10 +338,10 @@ void Account::encryptAccount(std::string decryptedPath, ConsoleType type, std::s
 
 void Account::WriteFile()
 {
-	// seek to the beginning of the file
+    // seek to the beginning of the file
     io->SetPosition(0);
 
-	// Write the information
+    // Write the information
     io->Write(account.reservedFlags);
     io->Write(account.liveFlags);
     io->Write(account.gamertag);
@@ -408,27 +374,27 @@ void Account::WriteFile()
 
 SubscriptionTeir Account::GetSubscriptionTeir()
 {
-	return (SubscriptionTeir)((account.cachedUserFlags & 0xF00000) >> 20);
+    return (SubscriptionTeir)((account.cachedUserFlags & 0xF0000) >> 16);
 }
 
 XboxLiveCountry Account::GetCountry()
 {
-	return (XboxLiveCountry)((account.cachedUserFlags & 0xFF00) >> 8);
+    return (XboxLiveCountry)((account.cachedUserFlags & 0xFF00) >> 8);
 }
 
 ConsoleLanguage Account::GetLanguage()
 {
-	return (ConsoleLanguage)((account.cachedUserFlags & 0x3E000000) >> 25);
+    return (ConsoleLanguage)((account.cachedUserFlags & 0x3E000000) >> 25);
 }
 
 XboxLiveServiceProvider Account::GetServiceProvider()
 {
-	return account.serviceProvider;
+    return account.serviceProvider;
 }
 
 void Account::GetPasscode(BYTE *passcode)
 {
-	if (!IsPasscodeEnabled())
+    if (!IsPasscodeEnabled())
     {
         memset(passcode, 0, 4);
         return;
@@ -438,30 +404,27 @@ void Account::GetPasscode(BYTE *passcode)
 
 string Account::GetOnlineDomain()
 {
-	return account.onlineDomain;
+    return account.onlineDomain;
 }
 
 string Account::GetKerbrosRealm()
 {
-	return account.kerbrosRealm;
+    return account.kerbrosRealm;
 }
 
 void Account::GetOnlineKey(BYTE *outKey)
 {
-	memcpy(outKey, account.onlineKey, 0x10);
+    memcpy(outKey, account.onlineKey, 0x10);
 }
 
 wstring Account::GetGamertag()
 {
-	return account.gamertag;
+    return account.gamertag;
 }
 
 Account::~Account(void)
 {
-    if (this->freeIO)
-    {
-        io->Close();
-        delete io;
-        remove(outPath.c_str());
-    }
+    io->Close();
+    delete io;
+    remove(outPath.c_str());
 }

@@ -71,19 +71,6 @@ WINFILETIME XdbfHelpers::TimeTtoFILETIME(time_t time, unsigned int millis)
     return toReturn;
 }
 
-WINFILETIME XdbfHelpers::TimeTtoFILETIME(time_t time, unsigned int millis)
-{
-    // TODO: Can just have the old function call this with 0ms
-    millis = millis % 1000; // make sure 0-999 ms
-
-    WINFILETIME toReturn;
-
-    UINT64 ll = ((UINT64)(time * (UINT64)10000000)) + ((UINT64)(millis * (UINT64)10000)) + 116444736000000000;
-    toReturn.dwLowDateTime = (DWORD)ll;
-    toReturn.dwHighDateTime = ll >> 32;
-    return toReturn;
-}
-
 string XdbfHelpers::GetAchievementState(AchievementEntry *entry)
 {
     if (entry->flags & UnlockedOnline)

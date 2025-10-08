@@ -1,8 +1,10 @@
 #include "profileeditor.h"
 #include "ui_profileeditor.h"
 
-ProfileEditor::ProfileEditor(QStatusBar *statusBar, StfsPackage *profile, bool dispose, QWidget *parent) :
-    QDialog(parent), ui(new Ui::ProfileEditor), profile(profile), PEC(NULL), dashGpd(NULL), account(NULL), downloader(NULL), dispose(dispose), statusBar(statusBar)
+ProfileEditor::ProfileEditor(QStatusBar *statusBar, StfsPackage *profile, bool dispose,
+        QWidget *parent) :
+    QDialog(parent), ui(new Ui::ProfileEditor), profile(profile), PEC(nullptr), dashGpd(nullptr),
+    account(nullptr), downloader(nullptr), dispose(dispose), statusBar(statusBar)
 {
     ui->setupUi(this);
     setWindowFlags(windowFlags() & ~Qt::WindowContextHelpButtonHint);
@@ -50,13 +52,16 @@ ProfileEditor::ProfileEditor(QStatusBar *statusBar, StfsPackage *profile, bool d
     ui->avatarAwardsList->header()->resizeSection(2, 125);
 
     gameBoxArtManager = new QNetworkAccessManager(this);
-    connect(gameBoxArtManager, SIGNAL(finished(QNetworkReply*)), this, SLOT(replyFinishedBoxArt(QNetworkReply*)));
+    connect(gameBoxArtManager, SIGNAL(finished(QNetworkReply*)), this,
+            SLOT(replyFinishedBoxArt(QNetworkReply*)));
 
     awardBoxArtManager = new QNetworkAccessManager(this);
-    connect(awardBoxArtManager, SIGNAL(finished(QNetworkReply*)), this, SLOT(replyFinishedAwBoxArt(QNetworkReply*)));
+    connect(awardBoxArtManager, SIGNAL(finished(QNetworkReply*)), this,
+            SLOT(replyFinishedAwBoxArt(QNetworkReply*)));
 
     awardThumbnailManager = new QNetworkAccessManager(this);
-    connect(awardThumbnailManager, SIGNAL(finished(QNetworkReply*)), this, SLOT(replyFinishedAwImg(QNetworkReply*)));
+    connect(awardThumbnailManager, SIGNAL(finished(QNetworkReply*)), this,
+            SLOT(replyFinishedAwImg(QNetworkReply*)));
 
     // verify that the package is a profile
     if (profile->metaData->contentType != Profile)
@@ -83,8 +88,10 @@ ProfileEditor::ProfileEditor(QStatusBar *statusBar, StfsPackage *profile, bool d
     }
 
     // setup the ui context menu stuff
-    connect(ui->imgAch, SIGNAL(customContextMenuRequested(QPoint)), this, SLOT(onSaveAchievementThumbnail(QPoint)));
-    connect(ui->imgAw, SIGNAL(customContextMenuRequested(QPoint)), this, SLOT(onSaveAvatarAwardThumbnail(QPoint)));
+    connect(ui->imgAch, SIGNAL(customContextMenuRequested(QPoint)), this,
+            SLOT(onSaveAchievementThumbnail(QPoint)));
+    connect(ui->imgAw, SIGNAL(customContextMenuRequested(QPoint)), this,
+            SLOT(onSaveAvatarAwardThumbnail(QPoint)));
 
     ///////////////////////////////////
     // LOAD FRONT PAGE
@@ -95,7 +102,8 @@ ProfileEditor::ProfileEditor(QStatusBar *statusBar, StfsPackage *profile, bool d
         statusBar->showMessage("Loading profile...");
 
         // extract the account file
-        accountTempPath = (QDir::tempPath() + "/" + QUuid::createUuid().toString().replace("{", "").replace("}", "").replace("-", "")).toStdString();
+        accountTempPath = (QDir::tempPath() + "/" + QUuid::createUuid().toString().replace("{",
+                "").replace("}", "").replace("-", "")).toStdString();
         profile->ExtractFile("Account", accountTempPath);
         tempFiles.push_back(accountTempPath);
 
@@ -104,15 +112,18 @@ ProfileEditor::ProfileEditor(QStatusBar *statusBar, StfsPackage *profile, bool d
 
         // load all of the account information
         ui->txtGamertag->setText(QString::fromStdWString(account->GetGamertag()));
-        ui->lblLanguage->setText(QString::fromStdString(AccountHelpers::ConsoleLanguageToString(account->GetLanguage())));
-        ui->lblSubscriptionTeir->setText(QString::fromStdString(AccountHelpers::SubscriptionTeirToString(account->GetSubscriptionTeir())));
+        ui->lblLanguage->setText(QString::fromStdString(AccountHelpers::ConsoleLanguageToString(
+                    account->GetLanguage())));
+        ui->lblSubscriptionTeir->setText(QString::fromStdString(AccountHelpers::SubscriptionTeirToString(
+                    account->GetSubscriptionTeir())));
         ui->lblParentalControlled->setText(((account->IsParentalControlled()) ? "Yes" : "No"));
         ui->lblCreditCard->setText(((account->IsPaymentInstrumentCreditCard()) ? "Yes" : "No"));
         ui->lblXUID->setText(QString::number(account->GetXUID(), 16).toUpper());
         ui->chxLIVE->setCheckState((Qt::CheckState)(account->IsLiveEnabled() << 1));
         ui->chxRecovering->setCheckState((Qt::CheckState)(account->IsRecovering() << 1));
         ui->chxPasscode->setCheckState((Qt::CheckState)(account->IsPasscodeEnabled() << 1));
-        ui->cmbxConsoleType->setCurrentIndex((profile->metaData->certificate.ownerConsoleType == DevKit) ? 0 : 1);
+        ui->cmbxConsoleType->setCurrentIndex((profile->metaData->certificate.ownerConsoleType == DevKit) ?
+                0 : 1);
 
         // load passcode
         BYTE passCode[4];
@@ -134,7 +145,8 @@ ProfileEditor::ProfileEditor(QStatusBar *statusBar, StfsPackage *profile, bool d
                 ui->cmbxNetwork->setEnabled(false);
                 break;
             default:
-                ui->cmbxNetwork->addItem(QString::fromStdString(AccountHelpers::XboxLiveServiceProviderToString(account->GetServiceProvider())));
+                ui->cmbxNetwork->addItem(QString::fromStdString(AccountHelpers::XboxLiveServiceProviderToString(
+                            account->GetServiceProvider())));
                 break;
         }
 
@@ -154,17 +166,18 @@ ProfileEditor::ProfileEditor(QStatusBar *statusBar, StfsPackage *profile, bool d
             ui->cmbxRegion->addItem(regions[i].name);
 
         // load the gamerpicture
-        QByteArray imageBuff((char*)profile->metaData->thumbnailImage, (size_t)profile->metaData->thumbnailImageSize);
+        QByteArray imageBuff((char*)profile->metaData->thumbnailImage,
+                (size_t)profile->metaData->thumbnailImageSize);
         ui->imgGamerpicture->setPixmap(QPixmap::fromImage(QImage::fromData(imageBuff)));
 
         // extract the dashboard gpd
-        //dashGpdTempPath = (QDir::tempPath() + "/" + QUuid::createUuid().toString().replace("{", "").replace("}", "").replace("-", "")).toStdString();
-        //tempFiles.push_back(dashGpdTempPath);
-        //profile->ExtractFile("FFFE07D1.gpd", dashGpdTempPath);
+        dashGpdTempPath = (QDir::tempPath() + "/" + QUuid::createUuid().toString().replace("{",
+                "").replace("}", "").replace("-", "")).toStdString();
+        tempFiles.push_back(dashGpdTempPath);
+        profile->ExtractFile("FFFE07D1.gpd", dashGpdTempPath);
 
         // parse the dashboard gpd
-        StfsIO *dashGpdIO = profile->GetStfsIO("FFFE07D1.gpd");
-        dashGpd = new DashboardGpd((BaseIO*)dashGpdIO);
+        dashGpd = new DashboardGpd(dashGpdTempPath);
 
         // load all the goodies
         if (dashGpd->gamerName.entry.type == 0)
@@ -204,8 +217,8 @@ ProfileEditor::ProfileEditor(QStatusBar *statusBar, StfsPackage *profile, bool d
         {
             // find the index of the gamer's region
             for (int i = 0; i < 109; i++)
-               if (regions[i].value == dashGpd->gamercardRegion.int32)
-                   ui->cmbxRegion->setCurrentIndex(i);
+                if (regions[i].value == dashGpd->gamercardRegion.int32)
+                    ui->cmbxRegion->setCurrentIndex(i);
         }
 
         if (dashGpd->yearsOnLive.entry.type == 0)
@@ -234,7 +247,8 @@ ProfileEditor::ProfileEditor(QStatusBar *statusBar, StfsPackage *profile, bool d
     }
     catch (string error)
     {
-        QMessageBox::critical(this, "Error", "An error has occurred while loading the profile.\n\n" + QString::fromStdString(error));
+        QMessageBox::critical(this, "Error",
+                "An error has occurred while loading the profile.\n\n" + QString::fromStdString(error));
         ok = false;
         return;
     }
@@ -258,7 +272,8 @@ ProfileEditor::ProfileEditor(QStatusBar *statusBar, StfsPackage *profile, bool d
     for (DWORD i = 0; i < dashGpd->gamesPlayed.size(); i++)
     {
         // if the game doesn't have any achievements, no need to load it
-        if (dashGpd->gamesPlayed.at(i).achievementCount == 0 && dashGpd->gamesPlayed.at(i).avatarAwardCount == 0)
+        if (dashGpd->gamesPlayed.at(i).achievementCount == 0 &&
+                dashGpd->gamesPlayed.at(i).avatarAwardCount == 0)
             continue;
 
         QString titleIDStr = QString::number(dashGpd->gamesPlayed.at(i).titleID, 16).toUpper();
@@ -272,7 +287,8 @@ ProfileEditor::ProfileEditor(QStatusBar *statusBar, StfsPackage *profile, bool d
         }
 
         // extract the gpd
-        string tempPath = (QDir::tempPath() + "/" + QUuid::createUuid().toString().replace("{", "").replace("}", "").replace("-", "")).toStdString();
+        string tempPath = (QDir::tempPath() + "/" + QUuid::createUuid().toString().replace("{",
+                "").replace("}", "").replace("-", "")).toStdString();
         profile->ExtractFile(gpdName.toStdString(), tempPath);
         tempFiles.push_back(tempPath);
 
@@ -291,7 +307,8 @@ ProfileEditor::ProfileEditor(QStatusBar *statusBar, StfsPackage *profile, bool d
         catch (string error)
         {
             ok = false;
-            QMessageBox::critical(this, "File Load Error", "Error loading game Gpd, '" + gpdName + "'.\n\n" + QString::fromStdString(error));
+            QMessageBox::critical(this, "File Load Error",
+                    "Error loading game Gpd, '" + gpdName + "'.\n\n" + QString::fromStdString(error));
             return;
         }
 
@@ -305,7 +322,7 @@ ProfileEditor::ProfileEditor(QStatusBar *statusBar, StfsPackage *profile, bool d
         // if there are avatar awards then add it to the vector
         if (dashGpd->gamesPlayed.at(i).avatarAwardCount != 0)
         {
-            AvatarAwardGameEntry a = { gpd, &dashGpd->gamesPlayed.at(i), NULL, false, string(""), string("") };
+            AvatarAwardGameEntry a = { gpd, &dashGpd->gamesPlayed.at(i), nullptr, false, string(""), string("") };
             aaGames.push_back(a);
         }
 
@@ -314,7 +331,7 @@ ProfileEditor::ProfileEditor(QStatusBar *statusBar, StfsPackage *profile, bool d
         item->setText(0, QString::fromStdWString(gpd->gameName.ws));
 
         // set the thumbnail
-        if (gpd->thumbnail.image != NULL)
+        if (gpd->thumbnail.image != nullptr)
         {
             QByteArray imageBuff((char*)gpd->thumbnail.image, (size_t)gpd->thumbnail.length);
             item->setIcon(0, QIcon(QPixmap::fromImage(QImage::fromData(imageBuff))));
@@ -353,7 +370,8 @@ ProfileEditor::ProfileEditor(QStatusBar *statusBar, StfsPackage *profile, bool d
     if (!pecExists && aaGames.size() != 0)
     {
         ok = false;
-        QMessageBox::critical(this, "File Not Found", "Games have been found with avatar awards, but no PEC file exists.\n");
+        QMessageBox::critical(this, "File Not Found",
+                "Games have been found with avatar awards, but no PEC file exists.\n");
         ui->tabAvatarAwards->setEnabled(false);
         return;
     }
@@ -367,13 +385,15 @@ ProfileEditor::ProfileEditor(QStatusBar *statusBar, StfsPackage *profile, bool d
     try
     {
         // extract the PEC file
-        //pecTempPath = (QDir::tempPath() + "/" + QUuid::createUuid().toString().replace("{", "").replace("}", "").replace("-", "")).toStdString();
-        //profile->ExtractFile("PEC", pecTempPath);
-        //tempFiles.push_back(pecTempPath);
+        pecTempPath = (QDir::tempPath() + "/" + QUuid::createUuid().toString().replace("{", "").replace("}",
+                "").replace("-", "")).toStdString();
+        profile->ExtractFile("PEC", pecTempPath);
+        tempFiles.push_back(pecTempPath);
     }
     catch (string error)
     {
-        QMessageBox::critical(this, "Error", "An error has occurred while extracting the PEC.\n\n" + QString::fromStdString(error));
+        QMessageBox::critical(this, "Error",
+                "An error has occurred while extracting the PEC.\n\n" + QString::fromStdString(error));
         ok = false;
         return;
     }
@@ -381,13 +401,13 @@ ProfileEditor::ProfileEditor(QStatusBar *statusBar, StfsPackage *profile, bool d
     // parse the PEC STFS package
     try
     {
-        StfsIO *pecIO = this->profile->GetStfsIO("PEC");
-        PEC = new StfsPackage((BaseIO*)pecIO, StfsPackagePEC);
+        PEC = new StfsPackage(pecTempPath, StfsPackagePEC);
     }
     catch (string error)
     {
         ok = false;
-        QMessageBox::critical(this, "File Load Error", "Error loading PEC file.\n\n" + QString::fromStdString(error));
+        QMessageBox::critical(this, "File Load Error",
+                "Error loading PEC file.\n\n" + QString::fromStdString(error));
         return;
     }
 
@@ -403,12 +423,14 @@ ProfileEditor::ProfileEditor(QStatusBar *statusBar, StfsPackage *profile, bool d
         if (!PEC->FileExists(gpdName.toStdString()))
         {
             ok = false;
-            QMessageBox::critical(this, "File Not Error", "Avatar Award Gpd '" + gpdName + "' was not found in the PEC.\n");
+            QMessageBox::critical(this, "File Not Error",
+                    "Avatar Award Gpd '" + gpdName + "' was not found in the PEC.\n");
             return;
         }
 
         // extract the avatar award Gpd
-        string tempGpdName = (QDir::tempPath() + "/" + QUuid::createUuid().toString().replace("{", "").replace("}", "").replace("-", "")).toStdString();
+        string tempGpdName = (QDir::tempPath() + "/" + QUuid::createUuid().toString().replace("{",
+                "").replace("}", "").replace("-", "")).toStdString();
         tempFiles.push_back(tempGpdName);
         PEC->ExtractFile(gpdName.toStdString(), tempGpdName);
 
@@ -425,7 +447,8 @@ ProfileEditor::ProfileEditor(QStatusBar *statusBar, StfsPackage *profile, bool d
         catch (string error)
         {
             ok = false;
-            QMessageBox::critical(this, "File Load Error", "Error loading the Avatar Award Gpd '" + gpdName + "'.\n\n" + QString::fromStdString(error));
+            QMessageBox::critical(this, "File Load Error",
+                    "Error loading the Avatar Award Gpd '" + gpdName + "'.\n\n" + QString::fromStdString(error));
             return;
         }
         aaGames.at(i).gpd = gpd;
@@ -448,7 +471,8 @@ ProfileEditor::ProfileEditor(QStatusBar *statusBar, StfsPackage *profile, bool d
 
     // setup the context menu
     ui->avatarAwardsList->setContextMenuPolicy(Qt::CustomContextMenu);
-    connect(ui->avatarAwardsList, SIGNAL(customContextMenuRequested(QPoint)), this, SLOT(showAvatarContextMenu(QPoint)));
+    connect(ui->avatarAwardsList, SIGNAL(customContextMenuRequested(QPoint)), this,
+            SLOT(showAvatarContextMenu(QPoint)));
 
     statusBar->showMessage("Profile loaded successfully", 3000);
 
@@ -461,7 +485,7 @@ ProfileEditor::ProfileEditor(QStatusBar *statusBar, StfsPackage *profile, bool d
     }
 
     uploader = new GpdUploader(gameGpds, awardGpds, titleIDs, true, this);
-    
+
     ok = true;
 }
 
@@ -473,25 +497,28 @@ void ProfileEditor::showAvatarContextMenu(QPoint point)
     contextMenu.addAction(QPixmap(":/Images/download.png"), "Download Award");
     QAction *selectedItem = contextMenu.exec(globalPos);
 
-    if (selectedItem == NULL)
+    if (selectedItem == nullptr)
         return;
     else if (selectedItem->text() == "Download Award")
     {
-        int button = QMessageBox::question(this, "Warning", "You are about to download an avatar award file. Unfortunatly the awards downloaded like this will only work on a JTAG/RGH/Dev.\n\nDo you want to continue?",
-                                                                   QMessageBox::Yes, QMessageBox::No);
+        int button = QMessageBox::question(this, "Warning",
+                "You are about to download an avatar award file. Unfortunatly the awards downloaded like this will only work on a JTAG/RGH/Dev.\n\nDo you want to continue?",
+                QMessageBox::Yes, QMessageBox::No);
 
         if (button != QMessageBox::Yes)
             return;
 
-        QString titleID = QString::number(aaGames.at(ui->aaGamelist->currentIndex().row()).titleEntry->titleID, 16);
-        QString guid = QString::fromStdString(AvatarAwardGpd::GetGUID(&aaGames.at(ui->aaGamelist->currentIndex().row()).
-            gpd->avatarAwards.at(ui->avatarAwardsList->currentIndex().row())));
+        QString titleID = QString::number(aaGames.at(
+                    ui->aaGamelist->currentIndex().row()).titleEntry->titleID, 16);
+        QString guid = QString::fromStdString(AvatarAwardGpd::GetGUID(&aaGames.at(
+                    ui->aaGamelist->currentIndex().row()).
+                gpd->avatarAwards.at(ui->avatarAwardsList->currentIndex().row())));
 
         // get a path for the new asset
         QString assetFileName = guid;
         assetFileName = assetFileName.replace("-", "").toUpper();
         assetSavePath = QFileDialog::getSaveFileName(this, "Choose a place to save the asset",
-            QtHelpers::DefaultLocation() + "/" + assetFileName, "*");
+                QtHelpers::DefaultLocation() + "/" + assetFileName, "*");
 
         if (assetSavePath == "")
             return;
@@ -507,7 +534,8 @@ void ProfileEditor::onAssetsDoneDownloading()
 {
     try
     {
-        struct AvatarAward *award = &aaGames.at(ui->aaGamelist->currentIndex().row()).gpd->avatarAwards.at(ui->avatarAwardsList->currentIndex().row());
+        AvatarAwardData *award = &aaGames.at(ui->aaGamelist->currentIndex().row()).gpd->avatarAwards.at(
+            ui->avatarAwardsList->currentIndex().row());
 
         StfsPackage newAsset(assetSavePath.toStdString(), StfsPackageCreate | StfsPackageFemale);
         newAsset.metaData->magic = PIRS;
@@ -519,22 +547,25 @@ void ProfileEditor::onAssetsDoneDownloading()
         // set all the needed metadata
         newAsset.metaData->contentType = AvatarItem;
         newAsset.metaData->titleID = award->titleID;
-
-        // not sure why i have to do this, but it triggors an 'Unknown Signal' from the OS if I don't
-        std::wstring *w = new std::wstring(award->name);
-        memcpy(&newAsset.metaData->displayName, w, sizeof(std::wstring));
+        newAsset.metaData->displayName = award->name;
 
         newAsset.metaData->subCategory = award->subcategory;
         newAsset.metaData->colorizable = award->colorizable;
-        QtHelpers::ParseHexStringBuffer(downloader->GetGUID().replace("-", "").toUpper(), newAsset.metaData->guid, 0x10);
+        QtHelpers::ParseHexStringBuffer(downloader->GetGUID().replace("-", "").toUpper(),
+                                        newAsset.metaData->guid, 0x10);
         newAsset.metaData->skeletonVersion = (downloader->GetV2TempPath() != "") ? Natal : Nxe;
         newAsset.metaData->WriteMetaData();
 
-        try { newAsset.InjectFile(downloader->GetV1TempPath().toStdString(), "asset.bin"); }
+        try
+        {
+            newAsset.InjectFile(downloader->GetV1TempPath().toStdString(), "asset.bin");
+        }
         catch (...) { }
 
         try
-        { newAsset.InjectFile(downloader->GetV2TempPath().toStdString(), "asset_v2.bin"); }
+        {
+            newAsset.InjectFile(downloader->GetV2TempPath().toStdString(), "asset_v2.bin");
+        }
         catch (...) { }
 
         // get the thumbnail
@@ -565,13 +596,15 @@ void ProfileEditor::onAssetsDoneDownloading()
     }
     catch (string error)
     {
-        QMessageBox::critical(this, "Error", "An error occurred while creating the asset package.\n\n" + QString::fromStdString(error));
+        QMessageBox::critical(this, "Error",
+                              "An error occurred while creating the asset package.\n\n" + QString::fromStdString(error));
     }
     catch (...)
     {
         QMessageBox::critical(this, "Error", "An unknown error occurred while creating the asset package.");
     }
 }
+
 
 void ProfileEditor::addToDashGpd(SettingEntry *entry, SettingEntryType type, UINT64 id)
 {
@@ -590,7 +623,7 @@ void ProfileEditor::addToDashGpd(SettingEntry *entry, SettingEntryType type, UIN
             break;
         case Binary:
             entry->binaryData.length = 0;
-            entry->binaryData.data = NULL;
+            entry->binaryData.data = nullptr;
             break;
         case UnicodeString:
             entry->str = new wstring(L"");
@@ -611,7 +644,8 @@ ProfileEditor::~ProfileEditor()
         }
         catch (string error)
         {
-            QMessageBox::critical(this, "Error", "An error occurred while saving the profile.\n\n" + QString::fromStdString(error));
+            QMessageBox::critical(this, "Error",
+                    "An error occurred while saving the profile.\n\n" + QString::fromStdString(error));
         }
     }
 
@@ -623,17 +657,17 @@ ProfileEditor::~ProfileEditor()
     for (DWORD i = 0; i < aaGames.size(); i++)
     {
         if (aaGames.at(i).titleEntry->achievementCount == 0)
-           delete aaGames.at(i).gameGpd;
+            delete aaGames.at(i).gameGpd;
         delete aaGames.at(i).gpd;
     }
 
-    if (dashGpd != NULL)
+    if (dashGpd != nullptr)
     {
         dashGpd->Close();
         delete dashGpd;
     }
 
-    if (account != NULL)
+    if (account != nullptr)
         delete account;
 
     if (dispose)
@@ -668,7 +702,8 @@ void ProfileEditor::on_gamesList_itemSelectionChanged()
     }
     catch (std::string error)
     {
-        QMessageBox::critical(this, "Error", "An error occurred while loading a game.\n\n" + QString::fromStdString(error));
+        QMessageBox::critical(this, "Error",
+                "An error occurred while loading a game.\n\n" + QString::fromStdString(error));
     }
 }
 
@@ -685,7 +720,8 @@ void ProfileEditor::loadGameInfo(int index)
     {
         QTreeWidgetItem *item = new QTreeWidgetItem(ui->achievementsList);
         item->setText(0, QString::fromStdWString(curGpd->achievements.at(i).name).replace("\n", ""));
-        item->setText(1, QString::fromStdString(XdbfHelpers::GetAchievementState(&curGpd->achievements.at(i))));
+        item->setText(1, QString::fromStdString(XdbfHelpers::GetAchievementState(&curGpd->achievements.at(
+                    i))));
         item->setText(2, QString::number(curGpd->achievements.at(i).gamerscore));
 
         ui->achievementsList->insertTopLevelItem(ui->achievementsList->topLevelItemCount(), item);
@@ -696,14 +732,21 @@ void ProfileEditor::loadGameInfo(int index)
 
     TitleEntry *title = games.at(index).titleEntry;
 
-    ui->lblGameName->setText("<span style=\"color:#4f4f4f;\">" + QString::fromStdWString(title->gameName) + "</span>");
-    ui->lblGameTitleID->setText("<span style=\"color:#4f4f4f;\">" + QString::number(title->titleID, 16).toUpper() + "</span>");
+    ui->lblGameName->setText("<span style=\"color:#4f4f4f;\">" + QString::fromStdWString(
+                title->gameName) + "</span>");
+    ui->lblGameTitleID->setText("<span style=\"color:#4f4f4f;\">" + QString::number(title->titleID,
+            16).toUpper() + "</span>");
     if (title->lastPlayed == 0)
         ui->lblGameLastPlayed->setText("<span style=\"color:#4f4f4f;\">N/A</span>");
     else
-        ui->lblGameLastPlayed->setText("<span style=\"color:#4f4f4f;\">" + QDateTime::fromTime_t(title->lastPlayed).toString(Qt::SystemLocaleShortDate) + "</span>");
-    ui->lblGameAchvs->setText("<span style=\"color:#4f4f4f;\">" + QString::number(title->achievementsUnlocked) + " out of " + QString::number(title->achievementCount) + " unlocked" + "</span>");
-    ui->lblGameGamerscore->setText("<span style=\"color:#4f4f4f;\">" + QString::number(title->gamerscoreUnlocked) + " out of " + QString::number(title->totalGamerscore) + " unlocked" + "</span>");
+        ui->lblGameLastPlayed->setText("<span style=\"color:#4f4f4f;\">" + QDateTime::fromSecsSinceEpoch(
+                    title->lastPlayed).toString(QLocale::system().dateFormat(QLocale::ShortFormat)) + "</span>");
+    ui->lblGameAchvs->setText("<span style=\"color:#4f4f4f;\">" + QString::number(
+                title->achievementsUnlocked) + " out of " + QString::number(title->achievementCount) + " unlocked" +
+            "</span>");
+    ui->lblGameGamerscore->setText("<span style=\"color:#4f4f4f;\">" + QString::number(
+                title->gamerscoreUnlocked) + " out of " + QString::number(title->totalGamerscore) + " unlocked" +
+            "</span>");
 
     string tmp = DashboardGpd::GetSmallBoxArtURL(title);
     gameBoxArtManager->get(QNetworkRequest(QUrl(QString::fromStdString(tmp))));
@@ -720,12 +763,12 @@ void ProfileEditor::saveImage(QPoint p, QLabel *imgLabel)
     contextMenu.addAction(QPixmap(":/Images/save.png"), "Save Image");
     QAction *selectedItem = contextMenu.exec(globalPos);
 
-    if (selectedItem == NULL)
+    if (selectedItem == nullptr)
         return;
     else if (selectedItem->text() == "Save Image")
     {
         QString saveFileName = QFileDialog::getSaveFileName(this, "Choose a place to save the thumbnail",
-            QtHelpers::DefaultLocation() + "\\thumbnail.png", "*.png");
+                QtHelpers::DefaultLocation() + "\\thumbnail.png", "*.png");
 
         if (saveFileName == "")
             return;
@@ -746,24 +789,28 @@ void ProfileEditor::replyFinishedBoxArt(QNetworkReply *aReply)
 
 void ProfileEditor::on_achievementsList_itemSelectionChanged()
 {
-    loadAchievementInfo(ui->gamesList->currentIndex().row(), ui->achievementsList->currentIndex().row());
+    loadAchievementInfo(ui->gamesList->currentIndex().row(),
+            ui->achievementsList->currentIndex().row());
 }
 
 void ProfileEditor::loadAchievementInfo(int gameIndex, unsigned int chievIndex)
 {
     if (gameIndex < 0)
         return;
-/*    if (chievIndex < 0)
-        return;*/
+    /*    if (chievIndex < 0)
+            return;*/
 
     if (chievIndex >= games.at(gameIndex).gpd->achievements.size())
         return;
 
     AchievementEntry entry = games.at(gameIndex).gpd->achievements.at(chievIndex);
     ui->lblAchName->setText(QString::fromStdWString(entry.name).trimmed());
-    ui->lblAchLockDesc->setText("Locked: <span style=\"color:#4f4f4f;\">" + QString::fromStdWString(entry.lockedDescription) + "</span>");
-    ui->lblAchUnlDesc->setText("Unlocked: <span style=\"color:#4f4f4f;\">" + QString::fromStdWString(entry.unlockedDescription) + "</span>");
-    ui->lblAchType->setText("Type: <span style=\"color:#4f4f4f;\">" + QString::fromStdString(GameGpd::GetAchievementType(&entry)) + "</span>");
+    ui->lblAchLockDesc->setText("Locked: <span style=\"color:#4f4f4f;\">" + QString::fromStdWString(
+                entry.lockedDescription) + "</span>");
+    ui->lblAchUnlDesc->setText("Unlocked: <span style=\"color:#4f4f4f;\">" + QString::fromStdWString(
+                entry.unlockedDescription) + "</span>");
+    ui->lblAchType->setText("Type: <span style=\"color:#4f4f4f;\">" + QString::fromStdString(
+                GameGpd::GetAchievementType(&entry)) + "</span>");
     ui->lblAchGamescore->setText(QString::number(entry.gamerscore));
 
     if (entry.flags & UnlockedOnline)
@@ -782,7 +829,7 @@ void ProfileEditor::loadAchievementInfo(int gameIndex, unsigned int chievIndex)
         ui->dteAchTimestamp->setEnabled(false);
     }
 
-    ui->dteAchTimestamp->setDateTime(QDateTime::fromTime_t(entry.unlockTime).addMSecs(entry.unlockTimeMilliseconds));
+    ui->dteAchTimestamp->setDateTime(QDateTime::fromSecsSinceEpoch(entry.unlockTime).addMSecs(entry.unlockTimeMilliseconds));
 
     // set the thumbnail
     ImageEntry img;
@@ -814,7 +861,8 @@ void ProfileEditor::loadAwardGameInfo(int index)
     {
         QTreeWidgetItem *item = new QTreeWidgetItem(ui->avatarAwardsList);
         item->setText(0, QString::fromStdWString(gpd->avatarAwards.at(i).name).replace("\n", ""));
-        item->setText(1, QString::fromStdString(XdbfHelpers::AssetGenderToString(gpd->GetAssetGender(&gpd->avatarAwards.at(i)))));
+        item->setText(1, QString::fromStdString(XdbfHelpers::AssetGenderToString(gpd->GetAssetGender(
+                    &gpd->avatarAwards.at(i)))));
 
         if (gpd->avatarAwards.at(i).flags & UnlockedOnline)
             item->setText(2, "Unlocked Online");
@@ -831,13 +879,18 @@ void ProfileEditor::loadAwardGameInfo(int index)
 
     // set the title information
     TitleEntry *title = aaGames.at(index).titleEntry;
-    ui->lblAwGameName->setText("<span style=\"color:#4f4f4f;\">" + QString::fromStdWString(title->gameName) + "</span>");
-    ui->lblAwGameTitleID->setText("<span style=\"color:#4f4f4f;\">" + QString::number(title->titleID, 16).toUpper() + "</span>");
+    ui->lblAwGameName->setText("<span style=\"color:#4f4f4f;\">" + QString::fromStdWString(
+                title->gameName) + "</span>");
+    ui->lblAwGameTitleID->setText("<span style=\"color:#4f4f4f;\">" + QString::number(title->titleID,
+            16).toUpper() + "</span>");
     if (title->lastPlayed == 0x67D6Ca80)
         ui->lblAwGameLastPlayed->setText("<span style=\"color:#4f4f4f;\">N/A</span>");
     else
-        ui->lblAwGameLastPlayed->setText("<span style=\"color:#4f4f4f;\">" + QDateTime::fromTime_t(title->lastPlayed).toString(Qt::SystemLocaleShortDate) + "</span>");
-    ui->lblAwGameAwards->setText("<span style=\"color:#4f4f4f;\">" + QString::number(title->avatarAwardsEarned) + " out of " + QString::number(title->avatarAwardCount) + " unlocked" + "</span>");
+        ui->lblAwGameLastPlayed->setText("<span style=\"color:#4f4f4f;\">" + QDateTime::fromSecsSinceEpoch(
+                    title->lastPlayed).toString(QLocale::system().dateFormat(QLocale::ShortFormat)) + "</span>");
+    ui->lblAwGameAwards->setText("<span style=\"color:#4f4f4f;\">" + QString::number(
+                title->avatarAwardsEarned) + " out of " + QString::number(title->avatarAwardCount) + " unlocked" +
+            "</span>");
 
     // download the box art image
     string tmp = DashboardGpd::GetSmallBoxArtURL(title);
@@ -858,7 +911,8 @@ void ProfileEditor::replyFinishedAwBoxArt(QNetworkReply *aReply)
 
 void ProfileEditor::on_avatarAwardsList_itemSelectionChanged()
 {
-    loadAvatarAwardInfo(ui->aaGamelist->currentIndex().row(), ui->avatarAwardsList->currentIndex().row());
+    loadAvatarAwardInfo(ui->aaGamelist->currentIndex().row(),
+            ui->avatarAwardsList->currentIndex().row());
 }
 
 void ProfileEditor::loadAvatarAwardInfo(int gameIndex, unsigned int awardIndex)
@@ -870,24 +924,29 @@ void ProfileEditor::loadAvatarAwardInfo(int gameIndex, unsigned int awardIndex)
         return;
 
     // get the current award
-    struct AvatarAward *award = &aaGames.at(gameIndex).gpd->avatarAwards.at(awardIndex);
+    AvatarAwardData *award = &aaGames.at(gameIndex).gpd->avatarAwards.at(awardIndex);
 
     // update the ui
     ui->lblAwName->setText(QString::fromStdWString(award->name));
-    ui->lblAwLockDesc->setText("Locked: <span style=\"color:#4f4f4f;\">" + QString::fromStdWString(award->lockedDescription) + "</span>");
-    ui->lblAwUnlDesc->setText("Unlocked: <span style=\"color:#4f4f4f;\">" + QString::fromStdWString(award->unlockedDescription) + "</span>");
+    ui->lblAwLockDesc->setText("Locked: <span style=\"color:#4f4f4f;\">" + QString::fromStdWString(
+                award->lockedDescription) + "</span>");
+    ui->lblAwUnlDesc->setText("Unlocked: <span style=\"color:#4f4f4f;\">" + QString::fromStdWString(
+                award->unlockedDescription) + "</span>");
 
     try
     {
-         ui->lblAwType->setText("Type: <span style=\"color:#4f4f4f;\">" + QString::fromStdString(XdbfHelpers::AssetSubcategoryToString(award->subcategory)) + "</span>");
+        ui->lblAwType->setText("Type: <span style=\"color:#4f4f4f;\">" + QString::fromStdString(
+                    XdbfHelpers::AssetSubcategoryToString(award->subcategory)) + "</span>");
     }
     catch (...)
     {
         ui->lblAwType->setText("Type: <span style=\"color:#4f4f4f;\"><i>Unknown</i></span>");
     }
 
-    ui->lblAwGender->setText("Gender: <span style=\"color:#4f4f4f;\">" + QString::fromStdString(XdbfHelpers::AssetGenderToString(aaGames.at(gameIndex).gpd->GetAssetGender(award))) + "</span>");
-    ui->lblAwSecret->setText(QString("Secret: <span style=\"color:#4f4f4f;\">") + ((award->flags & 0xFFFF) ? "No" : "Yes") + "</span>");
+    ui->lblAwGender->setText("Gender: <span style=\"color:#4f4f4f;\">" + QString::fromStdString(
+                XdbfHelpers::AssetGenderToString(aaGames.at(gameIndex).gpd->GetAssetGender(award))) + "</span>");
+    ui->lblAwSecret->setText(QString("Secret: <span style=\"color:#4f4f4f;\">") + ((
+                award->flags & 0xFFFF) ? "No" : "Yes") + "</span>");
 
     if (award->flags & UnlockedOnline)
     {
@@ -905,7 +964,7 @@ void ProfileEditor::loadAvatarAwardInfo(int gameIndex, unsigned int awardIndex)
         ui->dteAwTimestamp->setEnabled(false);
     }
 
-    ui->dteAwTimestamp->setDateTime(QDateTime::fromTime_t(award->unlockTime).addMSecs(award->unlockTimeMilliseconds));
+    ui->dteAwTimestamp->setDateTime(QDateTime::fromSecsSinceEpoch(award->unlockTime).addMSecs(award->unlockTimeMilliseconds));
 
     // download the thumbnail
     string tmp = AvatarAwardGpd::GetLargeAwardImageURL(award);
@@ -922,7 +981,8 @@ void ProfileEditor::replyFinishedAwImg(QNetworkReply *aReply)
         ui->imgAw->clear();
         ui->imgAw->setPixmap(QPixmap::fromImage(QImage::fromData(img)));
 
-        struct AvatarAward *award = aReply->request().attribute((QNetworkRequest::Attribute)1001).value<struct AvatarAward*>();
+        AvatarAwardData *award = aReply->request().attribute((QNetworkRequest::Attribute)
+                1001).value<AvatarAwardData*>();
 
         // add the avatar image to the gpd if it isn't already there
         if (ok && !ui->imgAw->pixmap().isNull())
@@ -960,7 +1020,9 @@ void ProfileEditor::replyFinishedAwImg(QNetworkReply *aReply)
                         }
                         catch (string error)
                         {
-                            QMessageBox::warning(this, "Save Error", "An error occurred while adding the avatar image to your profile.\n\n" + QString::fromStdString(error));
+                            QMessageBox::warning(this, "Save Error",
+                                    "An error occurred while adding the avatar image to your profile.\n\n" + QString::fromStdString(
+                                        error));
                             return;
                         }
                     }
@@ -980,8 +1042,10 @@ void ProfileEditor::on_btnUnlockAllAchvs_clicked()
     if (index < 0)
         return;
 
-    int btn = QMessageBox::question(this, "Are you sure?", "Are you sure that you want to unlock all of the achievements for " +
-                          QString::fromStdWString(games.at(index).titleEntry->gameName) + " offline?", QMessageBox::Yes, QMessageBox::No);
+    int btn = QMessageBox::question(this, "Are you sure?",
+              "Are you sure that you want to unlock all of the achievements for " +
+              QString::fromStdWString(games.at(index).titleEntry->gameName) + " offline?", QMessageBox::Yes,
+              QMessageBox::No);
 
     if (btn != QMessageBox::Yes)
         return;
@@ -996,8 +1060,12 @@ void ProfileEditor::on_btnUnlockAllAchvs_clicked()
 
     unlockAllAchievements(index);
 
-    ui->lblGameAchvs->setText("<span style=\"color:#4f4f4f;\">" + QString::number(games.at(index).titleEntry->achievementsUnlocked) + " out of " + QString::number(games.at(index).titleEntry->achievementCount) + " unlocked</span>");
-    ui->lblGameGamerscore->setText("<span style=\"color:#4f4f4f;\">" + QString::number(games.at(index).titleEntry->gamerscoreUnlocked) + " out of " + QString::number(games.at(index).titleEntry->totalGamerscore) + " unlocked</span>");
+    ui->lblGameAchvs->setText("<span style=\"color:#4f4f4f;\">" + QString::number(games.at(
+                index).titleEntry->achievementsUnlocked) + " out of " + QString::number(games.at(
+                        index).titleEntry->achievementCount) + " unlocked</span>");
+    ui->lblGameGamerscore->setText("<span style=\"color:#4f4f4f;\">" + QString::number(games.at(
+                index).titleEntry->gamerscoreUnlocked) + " out of " + QString::number(games.at(
+                        index).titleEntry->totalGamerscore) + " unlocked</span>");
     ui->lblGamerscore->setText(QString::number(dashGpd->gamerscoreUnlocked.int32) + "G");
 }
 
@@ -1009,7 +1077,7 @@ void ProfileEditor::on_btnExtractGPD_clicked()
 
     QString gpdName = QString::number(games.at(index).titleEntry->titleID, 16).toUpper() + ".gpd";
     QString filePath = QFileDialog::getSaveFileName(this, "Choose a place to save the Gpd",
-        QtHelpers::DefaultLocation() + "/" + gpdName, "Gpd File (*.gpd *.fit);;All Files (*.*)");
+            QtHelpers::DefaultLocation() + "/" + gpdName, "Gpd File (*.gpd *.fit);;All Files (*.*)");
 
     if (filePath == "")
         return;
@@ -1018,11 +1086,13 @@ void ProfileEditor::on_btnExtractGPD_clicked()
     {
         profile->ExtractFile(gpdName.toStdString(), filePath.toStdString());
         statusBar->showMessage("Extracted Gpd successfully", 3000);
-        QMessageBox::information(this, "Success", "Successfully extracted " + gpdName + " from your profile.\n");
+        QMessageBox::information(this, "Success",
+                "Successfully extracted " + gpdName + " from your profile.\n");
     }
     catch (string error)
     {
-        QMessageBox::critical(this, "Error", "Failed to extract " + gpdName + ".\n\n" + QString::fromStdString(error));
+        QMessageBox::critical(this, "Error",
+                "Failed to extract " + gpdName + ".\n\n" + QString::fromStdString(error));
     }
 }
 
@@ -1034,7 +1104,7 @@ void ProfileEditor::on_btnExtractGPD_2_clicked()
 
     QString gpdName = QString::number(aaGames.at(index).titleEntry->titleID, 16).toUpper() + ".gpd";
     QString filePath = QFileDialog::getSaveFileName(this, "Choose a place to save the Gpd",
-        QtHelpers::DefaultLocation() + "/" + gpdName, "Gpd File (*.gpd *.fit);;All Files (*.*)");
+            QtHelpers::DefaultLocation() + "/" + gpdName, "Gpd File (*.gpd *.fit);;All Files (*.*)");
 
     if (filePath == "")
         return;
@@ -1043,11 +1113,13 @@ void ProfileEditor::on_btnExtractGPD_2_clicked()
     {
         PEC->ExtractFile(gpdName.toStdString(), filePath.toStdString());
         statusBar->showMessage("Extracted Gpd successfully", 3000);
-        QMessageBox::information(this, "Success", "Successfully extracted " + gpdName + " from your profile.\n");
+        QMessageBox::information(this, "Success",
+                "Successfully extracted " + gpdName + " from your profile.\n");
     }
     catch (string error)
     {
-        QMessageBox::critical(this, "Error", "Failed to extract " + gpdName + ".\n\n" + QString::fromStdString(error));
+        QMessageBox::critical(this, "Error",
+                "Failed to extract " + gpdName + ".\n\n" + QString::fromStdString(error));
     }
 }
 
@@ -1057,11 +1129,13 @@ void ProfileEditor::on_btnUnlockAllAwards_clicked()
     if (index < 0)
         return;
 
-    int btn = QMessageBox::question(this, "Are you sure?", "Are you sure that you want to unlock all of the avatar awards for " +
-                          QString::fromStdWString(aaGames.at(index).titleEntry->gameName) + " offline?", QMessageBox::Yes, QMessageBox::No);
+    int btn = QMessageBox::question(this, "Are you sure?",
+              "Are you sure that you want to unlock all of the avatar awards for " +
+              QString::fromStdWString(aaGames.at(index).titleEntry->gameName) + " offline?", QMessageBox::Yes,
+              QMessageBox::No);
 
     if (btn != QMessageBox::Yes)
-      return;
+        return;
 
     unlockAllAwards(index);
 
@@ -1073,11 +1147,15 @@ void ProfileEditor::on_btnUnlockAllAwards_clicked()
             item->setText(2, "Unlocked Offline");
     }
 
-    ui->lblAwGameAwards->setText("<span style=\"color:#4f4f4f;\">" + QString::number(aaGames.at(index).titleEntry->avatarAwardsEarned) + " out of " + QString::number(aaGames.at(index).titleEntry->avatarAwardCount) + " unlocked</span>");
-    statusBar->showMessage("All awards unlocked for " + QString::fromStdWString(aaGames.at(index).titleEntry->gameName), 3000);
+    ui->lblAwGameAwards->setText("<span style=\"color:#4f4f4f;\">" + QString::number(aaGames.at(
+                index).titleEntry->avatarAwardsEarned) + " out of " + QString::number(aaGames.at(
+                        index).titleEntry->avatarAwardCount) + " unlocked</span>");
+    statusBar->showMessage("All awards unlocked for " + QString::fromStdWString(aaGames.at(
+                index).titleEntry->gameName), 3000);
 }
 
-void ProfileEditor::updateAvatarAward(TitleEntry *entry, AvatarAwardGpd *gpd, struct AvatarAward *award, State toSet)
+void ProfileEditor::updateAvatarAward(TitleEntry *entry, AvatarAwardGpd *gpd,
+        AvatarAwardData *award, State toSet)
 {
     AssetGender g = AvatarAwardGpd::GetAssetGender(award);
     State current = getStateFromFlags(award->flags);
@@ -1119,7 +1197,7 @@ void ProfileEditor::updateAvatarAward(TitleEntry *entry, AvatarAwardGpd *gpd, st
         if (award->subcategory == 0)
             award->subcategory = (AssetSubcategory)0xFFFFFFFF;
         award->colorizable = 0;
-        entry->lastPlayed = QDateTime::currentDateTime().toTime_t();
+        entry->lastPlayed = QDateTime::currentDateTime().currentSecsSinceEpoch();
     }
 
     // Write the entry back to the gpd
@@ -1133,7 +1211,8 @@ void ProfileEditor::updateAvatarAward(TitleEntry *entry, AvatarAwardGpd *gpd, st
     statusBar->showMessage("Updated " + QString::fromStdWString(award->name), 3000);
 }
 
-void ProfileEditor::updateAchievement(TitleEntry *entry, AchievementEntry *chiev, State toSet, GameGpd *gpd)
+void ProfileEditor::updateAchievement(TitleEntry *entry, AchievementEntry *chiev, State toSet,
+        GameGpd *gpd)
 {
     try
     {
@@ -1218,7 +1297,7 @@ void ProfileEditor::updateAchievement(TitleEntry *entry, AchievementEntry *chiev
         else if (toSet == StateUnlockedOnline)
         {
             chiev->flags |= (Unlocked | UnlockedOnline | 0x100000);
-            entry->lastPlayed = QDateTime::currentDateTime().toTime_t();
+            entry->lastPlayed = QDateTime::currentDateTime().currentSecsSinceEpoch();
         }
 
         entry->flags |= (SyncAchievement | DownloadAchievementImage);
@@ -1235,7 +1314,8 @@ void ProfileEditor::updateAchievement(TitleEntry *entry, AchievementEntry *chiev
     }
     catch (string error)
     {
-        QMessageBox::critical(this, "Error", "An error occurred while updating the achievement.\n\n" + QString::fromStdString(error));
+        QMessageBox::critical(this, "Error",
+                "An error occurred while updating the achievement.\n\n" + QString::fromStdString(error));
     }
 }
 
@@ -1244,14 +1324,15 @@ void ProfileEditor::saveAll()
     // validate the bio length
     if (ui->txtBio->toPlainText().length() > 499)
     {
-        QMessageBox::warning(this, "Invalid Length", "The length of a gamer's bio must be less than or equal to 499 characters.\n");
+        QMessageBox::warning(this, "Invalid Length",
+                "The length of a gamer's bio must be less than or equal to 499 characters.\n");
         return;
     }
 
     string path = QtHelpers::GetKVPath(profile->metaData->certificate.ownerConsoleType, this);
-    
+
     // save the avatar awards
-    if (PEC != NULL)
+    if (PEC != nullptr)
     {
         // put all the avatar award gpds back in the PEC
         for (DWORD i = 0; i < aaGames.size(); i++)
@@ -1266,7 +1347,7 @@ void ProfileEditor::saveAll()
 
         delete PEC;
 
-        //profile->ReplaceFile(pecTempPath, "PEC");
+        profile->ReplaceFile(pecTempPath, "PEC");
     }
 
     // save the achievements
@@ -1336,7 +1417,7 @@ void ProfileEditor::saveAll()
     dashGpd->WriteSettingEntry(dashGpd->gamerBio);
 
     // put the dash gpd back in the profile
-    //profile->ReplaceFile(dashGpdTempPath, "FFFE07D1.gpd");
+    profile->ReplaceFile(dashGpdTempPath, "FFFE07D1.gpd");
 
     // fix the package
     profile->metaData->WriteMetaData();
@@ -1362,7 +1443,8 @@ void ProfileEditor::on_btnCreateAch_clicked()
 
     AchievementEntry entry;
     QImage thumbnail;
-    AchievementCreationWizard wiz(games.at(ui->gamesList->currentIndex().row()).gpd->gameName.ws, &thumbnail, &entry, this);
+    AchievementCreationWizard wiz(games.at(ui->gamesList->currentIndex().row()).gpd->gameName.ws,
+            &thumbnail, &entry, this);
     wiz.exec();
 
     // make sure the user didn't exit out of the wizard early
@@ -1391,7 +1473,8 @@ void ProfileEditor::on_btnCreateAch_clicked()
         }
         catch (string error)
         {
-            QMessageBox::critical(this, "Creation Error", "An error occurred while creating an achievement.\n\n" + QString::fromStdString(error));
+            QMessageBox::critical(this, "Creation Error",
+                    "An error occurred while creating an achievement.\n\n" + QString::fromStdString(error));
         }
 
         // add the achievement to the UI
@@ -1432,7 +1515,8 @@ void ProfileEditor::on_cmbxAchState_currentIndexChanged(int index)
         ui->achievementsList->topLevelItem(chievIndex)->setText(1, "Locked");
 
         // update the title entry
-        updateAchievement(games.at(gameIndex).titleEntry, &gpd->achievements.at(chievIndex), StateLocked, gpd);
+        updateAchievement(games.at(gameIndex).titleEntry, &gpd->achievements.at(chievIndex), StateLocked,
+                gpd);
 
         ui->dteAchTimestamp->setEnabled(false);
     }
@@ -1442,10 +1526,15 @@ void ProfileEditor::on_cmbxAchState_currentIndexChanged(int index)
         ui->achievementsList->topLevelItem(chievIndex)->setText(1, "Unlocked Offline");
 
         // update the title entry
-        updateAchievement(games.at(gameIndex).titleEntry, &gpd->achievements.at(chievIndex), StateUnlockedOffline, gpd);
+        updateAchievement(games.at(gameIndex).titleEntry, &gpd->achievements.at(chievIndex),
+                StateUnlockedOffline, gpd);
 
-        ui->lblGameAchvs->setText("<span style=\"color:#4f4f4f;\">" + QString::number(games.at(gameIndex).titleEntry->achievementsUnlocked) + " out of " + QString::number(games.at(gameIndex).titleEntry->achievementCount) + " unlocked</span>");
-        ui->lblGameGamerscore->setText("<span style=\"color:#4f4f4f;\">Gamerscore: " + QString::number(games.at(gameIndex).titleEntry->gamerscoreUnlocked) + " out of " + QString::number(games.at(gameIndex).titleEntry->totalGamerscore) + " unlocked</span>");
+        ui->lblGameAchvs->setText("<span style=\"color:#4f4f4f;\">" + QString::number(games.at(
+                    gameIndex).titleEntry->achievementsUnlocked) + " out of " + QString::number(games.at(
+                            gameIndex).titleEntry->achievementCount) + " unlocked</span>");
+        ui->lblGameGamerscore->setText("<span style=\"color:#4f4f4f;\">Gamerscore: " + QString::number(
+                    games.at(gameIndex).titleEntry->gamerscoreUnlocked) + " out of " + QString::number(games.at(
+                            gameIndex).titleEntry->totalGamerscore) + " unlocked</span>");
 
         ui->dteAchTimestamp->setEnabled(false);
     }
@@ -1455,10 +1544,15 @@ void ProfileEditor::on_cmbxAchState_currentIndexChanged(int index)
         ui->achievementsList->topLevelItem(chievIndex)->setText(1, "Unlocked Online");
 
         // update the title entry
-        updateAchievement(games.at(gameIndex).titleEntry, &gpd->achievements.at(chievIndex), StateUnlockedOnline, gpd);
+        updateAchievement(games.at(gameIndex).titleEntry, &gpd->achievements.at(chievIndex),
+                StateUnlockedOnline, gpd);
 
-        ui->lblGameAchvs->setText("<span style=\"color:#4f4f4f;\">Achievements: " + QString::number(games.at(gameIndex).titleEntry->achievementsUnlocked) + " out of " + QString::number(games.at(gameIndex).titleEntry->achievementCount) + " unlocked</span>");
-        ui->lblGameGamerscore->setText("<span style=\"color:#4f4f4f;\">Gamerscore: " + QString::number(games.at(gameIndex).titleEntry->gamerscoreUnlocked) + " out of " + QString::number(games.at(gameIndex).titleEntry->totalGamerscore) + " unlocked</span>");
+        ui->lblGameAchvs->setText("<span style=\"color:#4f4f4f;\">Achievements: " + QString::number(
+                    games.at(gameIndex).titleEntry->achievementsUnlocked) + " out of " + QString::number(games.at(
+                            gameIndex).titleEntry->achievementCount) + " unlocked</span>");
+        ui->lblGameGamerscore->setText("<span style=\"color:#4f4f4f;\">Gamerscore: " + QString::number(
+                    games.at(gameIndex).titleEntry->gamerscoreUnlocked) + " out of " + QString::number(games.at(
+                            gameIndex).titleEntry->totalGamerscore) + " unlocked</span>");
 
         ui->dteAchTimestamp->setEnabled(true);
         ui->dteAchTimestamp->setDateTime(QDateTime::currentDateTime());
@@ -1490,7 +1584,8 @@ void ProfileEditor::on_cmbxAwState_currentIndexChanged(int index)
         ui->avatarAwardsList->topLevelItem(awardIndex)->setText(2, "Locked");
 
         // update the title entry
-        updateAvatarAward(aaGames.at(gameIndex).titleEntry, gpd, &gpd->avatarAwards.at(awardIndex), StateLocked);
+        updateAvatarAward(aaGames.at(gameIndex).titleEntry, gpd, &gpd->avatarAwards.at(awardIndex),
+                StateLocked);
         ui->dteAwTimestamp->setEnabled(false);
     }
     else if (index == 1)
@@ -1499,10 +1594,13 @@ void ProfileEditor::on_cmbxAwState_currentIndexChanged(int index)
         ui->avatarAwardsList->topLevelItem(awardIndex)->setText(2, "Unlocked Offline");
 
         // update the title entry
-        updateAvatarAward(aaGames.at(gameIndex).titleEntry, gpd, &gpd->avatarAwards.at(awardIndex), StateUnlockedOffline);
+        updateAvatarAward(aaGames.at(gameIndex).titleEntry, gpd, &gpd->avatarAwards.at(awardIndex),
+                StateUnlockedOffline);
         ui->dteAwTimestamp->setEnabled(false);
 
-        ui->lblAwGameAwards->setText("<span style=\"color:#4f4f4f;\">Awards: " + QString::number(aaGames.at(gameIndex).titleEntry->avatarAwardsEarned) + " out of " + QString::number(aaGames.at(gameIndex).titleEntry->avatarAwardCount) + " unlocked</span>");
+        ui->lblAwGameAwards->setText("<span style=\"color:#4f4f4f;\">Awards: " + QString::number(aaGames.at(
+                    gameIndex).titleEntry->avatarAwardsEarned) + " out of " + QString::number(aaGames.at(
+                            gameIndex).titleEntry->avatarAwardCount) + " unlocked</span>");
     }
     else
     {
@@ -1510,9 +1608,12 @@ void ProfileEditor::on_cmbxAwState_currentIndexChanged(int index)
         ui->avatarAwardsList->topLevelItem(awardIndex)->setText(2, "Unlocked Online");
 
         // update the title entry
-        updateAvatarAward(aaGames.at(gameIndex).titleEntry, gpd, &gpd->avatarAwards.at(awardIndex), StateUnlockedOnline);
+        updateAvatarAward(aaGames.at(gameIndex).titleEntry, gpd, &gpd->avatarAwards.at(awardIndex),
+                StateUnlockedOnline);
 
-        ui->lblAwGameAwards->setText("<span style=\"color:#4f4f4f;\">Awards: " + QString::number(aaGames.at(gameIndex).titleEntry->avatarAwardsEarned) + " out of " + QString::number(aaGames.at(gameIndex).titleEntry->avatarAwardCount) + " unlocked</span>");
+        ui->lblAwGameAwards->setText("<span style=\"color:#4f4f4f;\">Awards: " + QString::number(aaGames.at(
+                    gameIndex).titleEntry->avatarAwardsEarned) + " out of " + QString::number(aaGames.at(
+                            gameIndex).titleEntry->avatarAwardCount) + " unlocked</span>");
 
         ui->dteAwTimestamp->setEnabled(true);
         ui->dteAwTimestamp->setDateTime(QDateTime::currentDateTime());
@@ -1579,18 +1680,19 @@ void ProfileEditor::on_dteAchTimestamp_dateTimeChanged(const QDateTime &date)
     if (ui->gamesList->currentIndex().row() < 0 || ui->achievementsList->currentIndex().row() < 0)
         return;
 
-    AchievementEntry *entry = &games.at(ui->gamesList->currentIndex().row()).gpd->achievements.at(ui->achievementsList->currentIndex().row());
+    AchievementEntry *entry = &games.at(ui->gamesList->currentIndex().row()).gpd->achievements.at(
+                ui->achievementsList->currentIndex().row());
 
     // make sure the user changed the time
-    if (date.toTime_t() == entry->unlockTime)
+    if (date.currentSecsSinceEpoch() == entry->unlockTime)
         return;
 
     games.at(ui->gamesList->currentIndex().row()).gpd->StartWriting();
 
-    entry->unlockTime = date.toTime_t();
+    entry->unlockTime = date.currentSecsSinceEpoch();
     entry->unlockTimeMilliseconds = date.time().msec();
 
-    ui->dteAchTimestamp->setDateTime(QDateTime::fromTime_t(entry->unlockTime).addMSecs(entry->unlockTimeMilliseconds));
+    ui->dteAchTimestamp->setDateTime(QDateTime::fromSecsSinceEpoch(entry->unlockTime).addMSecs(entry->unlockTimeMilliseconds));
     games.at(ui->gamesList->currentIndex().row()).gpd->WriteAchievementEntry(entry);
     games.at(ui->gamesList->currentIndex().row()).updated = true;
 
@@ -1604,23 +1706,25 @@ void ProfileEditor::on_dteAwTimestamp_dateTimeChanged(const QDateTime &date)
     if (ui->aaGamelist->currentIndex().row() < 0 || ui->avatarAwardsList->currentIndex().row() < 0)
         return;
 
-    struct AvatarAward *entry = &aaGames.at(ui->aaGamelist->currentIndex().row()).gpd->avatarAwards.at(ui->avatarAwardsList->currentIndex().row());
+    AvatarAwardData *entry = &aaGames.at(ui->aaGamelist->currentIndex().row()).gpd->avatarAwards.at(
+                ui->avatarAwardsList->currentIndex().row());
 
     // make sure the user changed the time
-    if (date.toTime_t() == entry->unlockTime)
+    if (date.currentSecsSinceEpoch() == entry->unlockTime)
         return;
 
-    entry->unlockTime = date.toTime_t();
+    entry->unlockTime = date.currentSecsSinceEpoch();
     entry->unlockTimeMilliseconds = date.time().msec();
     aaGames.at(ui->aaGamelist->currentIndex().row()).gpd->WriteAvatarAward(entry);
     aaGames.at(ui->aaGamelist->currentIndex().row()).updated = true;
 
-   statusBar->showMessage("Updated " + QString::fromStdWString(entry->name), 3000);
+    statusBar->showMessage("Updated " + QString::fromStdWString(entry->name), 3000);
 }
 
 void ProfileEditor::on_txtGameSearch_textChanged(const QString & /*arg1*/)
 {
-    QList<QTreeWidgetItem*> itemsMatched = ui->gamesList->findItems(ui->txtGameSearch->text(), Qt::MatchContains);
+    QList<QTreeWidgetItem*> itemsMatched = ui->gamesList->findItems(ui->txtGameSearch->text(),
+            Qt::MatchContains);
 
     // hide all the items
     for (int i = 0; i < ui->gamesList->topLevelItemCount(); i++)
@@ -1640,7 +1744,8 @@ void ProfileEditor::on_txtGameSearch_textChanged(const QString & /*arg1*/)
 
 void ProfileEditor::on_txtAwardGameSearch_textChanged(const QString & /* arg1 */)
 {
-    QList<QTreeWidgetItem*> itemsMatched = ui->aaGamelist->findItems(ui->txtAwardGameSearch->text(), Qt::MatchContains);
+    QList<QTreeWidgetItem*> itemsMatched = ui->aaGamelist->findItems(ui->txtAwardGameSearch->text(),
+            Qt::MatchContains);
 
     // hide all the items
     for (int i = 0; i < ui->aaGamelist->topLevelItemCount(); i++)
@@ -1661,16 +1766,20 @@ void ProfileEditor::on_txtAwardGameSearch_textChanged(const QString & /* arg1 */
 void ProfileEditor::on_tabWidget_currentChanged(int index)
 {
     unlockEverything->setHidden(index == 0);
-    unlockEverything->setEnabled(((index == 1) ? (ui->gamesList->topLevelItemCount() != 0) : (ui->aaGamelist->topLevelItemCount() != 0)));
+    unlockEverything->setEnabled(((index == 1) ? (ui->gamesList->topLevelItemCount() != 0) :
+            (ui->aaGamelist->topLevelItemCount() != 0)));
 }
 
 void ProfileEditor::onUnlockEverything()
 {
-    QMessageBox::StandardButton btn = (QMessageBox::StandardButton)QMessageBox::question(this, "Continue?", "Are you sure that you want to unlock all achievements and avatar awards offline?", QMessageBox::Yes, QMessageBox::No);
+    QMessageBox::StandardButton btn = (QMessageBox::StandardButton)QMessageBox::question(this,
+            "Continue?", "Are you sure that you want to unlock all achievements and avatar awards offline?",
+            QMessageBox::Yes, QMessageBox::No);
     if (btn != QMessageBox::Yes)
         return;
 
-    QString max =  QString::number(ui->gamesList->topLevelItemCount() + ui->aaGamelist->topLevelItemCount());
+    QString max =  QString::number(ui->gamesList->topLevelItemCount() +
+            ui->aaGamelist->topLevelItemCount());
     statusBar->showMessage("Unlocking... 0/" + max);
     ui->tabWidget->setEnabled(false);
 
@@ -1701,7 +1810,8 @@ void ProfileEditor::onUnlockEverything()
     {
         unlockAllAwards(i);
 
-        statusBar->showMessage("Unlocking... " + QString::number(i + ui->gamesList->topLevelItemCount() + 1) + "/" + max);
+        statusBar->showMessage("Unlocking... " + QString::number(i + ui->gamesList->topLevelItemCount() + 1)
+                + "/" + max);
         QApplication::processEvents();
     }
     if (ui->aaGamelist->topLevelItemCount() != 0)
@@ -1777,8 +1887,10 @@ void ProfileEditor::unlockAllAwards(int index)
 
     // update the title entry
     aaGames.at(index).titleEntry->avatarAwardsEarned = aaGames.at(index).titleEntry->avatarAwardCount;
-    aaGames.at(index).titleEntry->maleAvatarAwardsEarned = aaGames.at(index).titleEntry->maleAvatarAwardCount;
-    aaGames.at(index).titleEntry->femaleAvatarAwardsEarned = aaGames.at(index).titleEntry->femaleAvatarAwardCount;
+    aaGames.at(index).titleEntry->maleAvatarAwardsEarned = aaGames.at(
+                index).titleEntry->maleAvatarAwardCount;
+    aaGames.at(index).titleEntry->femaleAvatarAwardsEarned = aaGames.at(
+                index).titleEntry->femaleAvatarAwardCount;
     aaGames.at(index).titleEntry->flags |= (DownloadAvatarAward | SyncAvatarAward);
 
     dashGpd->WriteTitleEntry(aaGames.at(index).titleEntry);

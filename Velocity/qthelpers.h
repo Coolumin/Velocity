@@ -7,7 +7,6 @@
 #include <QFileDialog>
 #include <QDesktopServices>
 #include <QCoreApplication>
-#include <QApplication>
 #include <QLabel>
 #include <QPushButton>
 #include <QFont>
@@ -18,16 +17,12 @@
 #include <QHeaderView>
 #include <QCheckBox>
 #include <QProgressBar>
-#include <QStringList>
 #include <QMdiArea>
 #include <QStandardPaths>
 
 // other
-#include "winnames.h"
-#include "Stfs/StfsConstants.h"
-#include "Stfs/XContentHeader.h"
-#include "Fatx/FatxDrive.h"
-#include "nightcharts.h"
+#include "TypeDefinitions.h"
+#include <Stfs/StfsConstants.h>
 #include <ctype.h>
 
 #ifdef _WIN32
@@ -47,8 +42,6 @@ public:
     static QString ByteArrayToString(BYTE *buffer, DWORD len, bool spacesBetween);
 
     static DWORD ParseHexString(QString string);
-
-    static QString ToHexString(UINT64 num);
 
     static void ParseHexStringBuffer(QString bytes, BYTE *outBuffer, int len);
 
@@ -70,24 +63,16 @@ public:
 
     static void SearchTreeWidget(QTreeWidget *widget, QLineEdit *searchWidget, QString searchString);
 
-    static QTreeWidgetItem *GetRootLevelTreeWidgetItem(QTreeWidgetItem *item);
-
     static void HideAllItems(QTreeWidgetItem *parent);
 
     static void ShowAllItems(QTreeWidgetItem *parent);
 
     static void CollapseAllChildren(QTreeWidgetItem *item);
 
-    static void GetFileIcon(DWORD magic, QString fileName, QIcon &icon, QTreeWidgetItem &item, FileSystem fileSystem = FileSystemSTFS);
-    
+    static void GetFileIcon(DWORD magic, QString fileName, QIcon &icon, QTreeWidgetItem &item);
+
     static void AddSubWindow(QMdiArea *mdiArea, QWidget *widget);
 
-    static QStringList StdStringArrayToQStringList(std::vector<std::string> strings);
-
-    static void DrawFreeMemoryGraph(FatxDrive *drive, QLabel *graph, QColor backgroundColor, QLabel *freeMemLegendColor,
-                                    QLabel *freeMemLegend, QLabel *usedMemLengendColor, QLabel *usedMemLegend, bool contentOnly,
-                                    void(*updateUI)(void*, bool));
-                                    
 private:
     class SubWindowEvents : public QObject
     {

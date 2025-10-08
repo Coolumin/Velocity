@@ -1,8 +1,8 @@
-#include "JoinedMultiFileIO.h"
+#include "MultiFileIO.h"
 
-JoinedMultiFileIO::JoinedMultiFileIO(std::vector<std::string> filePaths) : currentIOIndex(0), pos(0)
+MultiFileIO::MultiFileIO(std::vector<std::string> filePaths) : pos(0), currentIOIndex(0)
 {
-    for (int i = 0; i < filePaths.size(); i++)
+    for (size_t i = 0; i < filePaths.size(); i++)
     {
         FileIO *io = new FileIO(filePaths.at(i));
         files.push_back(io);
@@ -11,17 +11,17 @@ JoinedMultiFileIO::JoinedMultiFileIO(std::vector<std::string> filePaths) : curre
     calcualteLengthOfAllFiles();
 }
 
-JoinedMultiFileIO::JoinedMultiFileIO(std::vector<BaseIO*> files) : files(files), currentIOIndex(0), pos(0)
+MultiFileIO::MultiFileIO(std::vector<BaseIO*> files) : pos(0), currentIOIndex(0), files(files)
 {
     calcualteLengthOfAllFiles();
 }
 
-JoinedMultiFileIO::~JoinedMultiFileIO()
+MultiFileIO::~MultiFileIO()
 {
     Close();
 }
 
-void JoinedMultiFileIO::SetPosition(UINT64 position, std::ios_base::seek_dir dir)
+void MultiFileIO::SetPosition(UINT64 position, std::ios_base::seekdir dir)
 {
     if (dir == std::ios_base::end)
         throw std::string("MultiFileIO: Unsupported seek dir.");
@@ -31,7 +31,7 @@ void JoinedMultiFileIO::SetPosition(UINT64 position, std::ios_base::seek_dir dir
     pos = position;
 
     // calculate which stream we should use
-    for (int i = 0; i < files.size(); i++)
+    for (size_t i = 0; i < files.size(); i++)
     {
         if (position >= files.at(i)->Length())
             position -= files.at(i)->Length();
@@ -44,17 +44,17 @@ void JoinedMultiFileIO::SetPosition(UINT64 position, std::ios_base::seek_dir dir
     }
 }
 
-UINT64 JoinedMultiFileIO::GetPosition()
+UINT64 MultiFileIO::GetPosition()
 {
     return pos;
 }
 
-UINT64 JoinedMultiFileIO::Length()
+UINT64 MultiFileIO::Length()
 {
     return lengthOfFiles;
 }
 
-void JoinedMultiFileIO::WriteBytes(BYTE *buffer, DWORD len)
+void MultiFileIO::WriteBytes(BYTE *buffer, DWORD len)
 {
     if (len > lengthOfFiles - pos)
         throw std::string("MultiFileIO: Requested Write length is too large.\n");
@@ -82,12 +82,12 @@ void JoinedMultiFileIO::WriteBytes(BYTE *buffer, DWORD len)
     }
 }
 
-void JoinedMultiFileIO::Flush()
+void MultiFileIO::Flush()
 {
     files.at(currentIOIndex)->Flush();
 }
 
-void JoinedMultiFileIO::ReadBytes(BYTE *outBuffer, DWORD len)
+void MultiFileIO::ReadBytes(BYTE *outBuffer, DWORD len)
 {
     DWORD offset = 0;
 
@@ -112,12 +112,12 @@ void JoinedMultiFileIO::ReadBytes(BYTE *outBuffer, DWORD len)
     }
 }
 
-void JoinedMultiFileIO::Close()
+void MultiFileIO::Close()
 {
     if (isClosed)
         return;
 
-    for (int i = 0; i < files.size(); i++)
+    for (size_t i = 0; i < files.size(); i++)
         delete files.at(i);
 
     files.clear();
@@ -125,11 +125,11 @@ void JoinedMultiFileIO::Close()
     isClosed = true;
 }
 
-void JoinedMultiFileIO::calcualteLengthOfAllFiles()
+void MultiFileIO::calcualteLengthOfAllFiles()
 {
     isClosed = false;
     lengthOfFiles = 0;
 
-    for (int i = 0; i < files.size(); i++)
+    for (size_t i = 0; i < files.size(); i++)
         lengthOfFiles += files.at(i)->Length();
 }

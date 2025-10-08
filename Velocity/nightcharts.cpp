@@ -319,13 +319,13 @@ int Nightcharts::draw(QPainter *painter)
         painter->setPen(Qt::SolidLine);
         for (int i=1; i<10; i++)
         {
-            painter->drawLine(cX-3,cY+cH/10*i,cX+3,cY+cH/10*i);    //妫殨 𐬠ﲨ Y
+            painter->drawLine(cX-3,cY+cH/10*i,cX+3,cY+cH/10*i);    //äåëåíèÿ ïî îñè Y
             //painter->drawText(cX-20,cY+cH/10*i,QString::number((10-i)*10)+"%");
         }
-        painter->drawLine(cX,cY+cH,cX,cY);         //ﲼ Y
-        painter->drawLine(cX,cY,cX+4,cY+10);       //򳱥쫨
+        painter->drawLine(cX,cY+cH,cX,cY);         //îñü Y
+        painter->drawLine(cX,cY,cX+4,cY+10);       //ñòðåëêè
         painter->drawLine(cX,cY,cX-4,cY+10);
-        painter->drawLine(cX,cY+cH,cX+cW,cY+cH);   //ﲼ Ӎ
+        painter->drawLine(cX,cY+cH,cX+cW,cY+cH);   //îñü Õ
 
     }
     return 0;
@@ -405,7 +405,7 @@ int Nightcharts::drawLegend(QPainter *painter)
             }
             break;
     }
-    
+
     return 0;
 }
 
@@ -423,6 +423,7 @@ QPointF Nightcharts::GetPoint(double angle, double R1, double R2)
     y+=cH/2+cY;
     point.setX(x);
     point.setY(y);
+
     return point;
 }
 

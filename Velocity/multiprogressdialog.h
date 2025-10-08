@@ -14,8 +14,6 @@
 #include "Stfs/StfsPackage.h"
 #include "Fatx/FatxConstants.h"
 #include "Fatx/FatxDrive.h"
-#include "Fatx/XContentDevice.h"
-#include "Utils.h"
 
 enum Operation
 {
@@ -23,8 +21,7 @@ enum Operation
     OpReplace,
     OpInject,
     OpBackup,
-    OpRestore,
-    OpExtractAll
+    OpRestore
 };
 
 struct StfsExtractEntry
@@ -33,14 +30,8 @@ struct StfsExtractEntry
     QString path;
 };
 
-struct FatxFriendlyInjectEntry
+namespace Ui
 {
-    QString localPath;
-    bool isDataFile;
-    QString fatxDataFilePath;
-};
-
-namespace Ui {
 class MultiProgressDialog;
 }
 
@@ -51,8 +42,9 @@ class MultiProgressDialog : public QDialog
     Q_OBJECT
 
 public:
-    explicit MultiProgressDialog(Operation op, FileSystem fileSystem, void *device, QString outDir, QList<void*> internalFiles,
-                                 QWidget *parent = 0, QStringList rootPaths = QStringList(), FatxFileEntry *parentEntry = NULL);
+    explicit MultiProgressDialog(Operation op, FileSystem fileSystem, void *device, QString outDir,
+            QList<void*> internalFiles, QWidget *parent = 0, QString rootPath = "",
+            FatxFileEntry *parentEntry = nullptr);
     ~MultiProgressDialog();
 
     void start();
@@ -67,7 +59,7 @@ private:
     DWORD overallProgress;
     DWORD overallProgressTotal;
     DWORD prevProgress;
-    QStringList rootPaths;
+    QString rootPath;
     Operation op;
     FatxFileEntry *parentEntry;
 

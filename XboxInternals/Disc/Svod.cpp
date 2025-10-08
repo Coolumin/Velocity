@@ -1,87 +1,45 @@
 #include "Svod.h"
 
-std::vector<std::string> SVOD::GetDataFilePaths(std::string rootDescriptorPath)
-{
-    SVOD svod(rootDescriptorPath);
-
-    // check to see if the data files are there
-    std::string dataFileDirectoryPath = rootDescriptorPath + ".data\\";
-#ifdef __WIN32
-    bool dataFileDirectoryExists = PathFileExistsA(dataFileDirectoryPath.c_str());
-#else
-    struct stat sb;
-    bool dataFileDirectoryExists = stat(dataFileDirectoryPath.c_str(), &sb) == 0 && S_ISDIR(sb.st_mode));
-#endif
-
-    std::vector<std::string> dataFiles;
-    if (dataFileDirectoryExists)
-    {
-        // get a list of all the data files in the directory
-        dataFiles = Utils::FilesInDirectory(dataFileDirectoryPath);
-
-        // TODO: make sure that they're named DataXXXX
-    }
-    return dataFiles;
-}
-
-SVOD::SVOD(string rootPath, FatxDrive *drive, bool readFileListing) :
-    drive(drive), didReadFileListing(false)
+SVOD::SVOD(string rootPath)
 {
     // make sure all of the slashes are the same
-    rootPath = Utils::NormalizeFilePath(rootPath, '\\', '/');
+    for (DWORD i = 0; i < rootPath.length(); i++)
+        if (rootPath.at(i) == '\\')
+            rootPath.at(i) = '/';
 
     // get the content folder name, and make sure it exists
     string fileName = rootPath.substr(rootPath.find_last_of("/") + 1);
     contentDirectory = rootPath.substr(0, rootPath.find_last_of("/")) + "/" + fileName + ".data/";
 
     // parse the XContentHeader
-    if (drive == NULL)
-    {
-        rootFile = new FileIO(rootPath);
-    }
-    else
-    {
-        // for FATX paths the slashes have to be \ like on windows
-        rootPath = Utils::NormalizeFilePath(rootPath) ;
+    rootFile = new FileIO(rootPath);
+    metadata = new XContentHeader(rootFile);
 
-        FatxFileEntry *rootFileEntry = drive->GetFileEntry(rootPath);
-        rootFile = new FatxIO(drive->GetFatxIO(rootFileEntry));
-    }
-    metaData = new XContentHeader(rootFile);
+    baseAddress = (metadata->svodVolumeDescriptor.flags & EnhancedGDFLayout) ? 0x2000 : 0x12000;
+    offset = (metadata->svodVolumeDescriptor.flags & EnhancedGDFLayout) ? 0x2000 : 0x1000;
 
-    baseAddress = (metaData->svodVolumeDescriptor.flags & EnhancedGDFLayout) ? 0x2000 : 0x12000;
-    offset = (metaData->svodVolumeDescriptor.flags & EnhancedGDFLayout) ? 0x2000 : 0x1000;
-
-    if (metaData->fileSystem != FileSystemSVOD)
+    if (metadata->fileSystem != FileSystemSVOD)
         throw string("SVOD: Invalid file system header.\n");
 
-    switch (metaData->contentType)
+    switch (metadata->contentType)
     {
         case GameOnDemand:
+            ;
         case InstalledGame:
-        case XboxOriginalGame:
             break;
         default:
             throw string("SVOD: Unrecognized content type.\n");
     }
 
     // open an IO on the content files
-    if (drive == NULL)
-    {
-        io = new LocalIndexableMultiFileIO(contentDirectory);
-    }
-    else
-    {
-        contentDirectory = Utils::NormalizeFilePath(contentDirectory);
-        io = new FatxIndexableMultiFileIO(contentDirectory, drive);
-    }
+    io = new SvodMultiFileIO(contentDirectory);
 
     // parse the header
-    io->SetPosition(baseAddress, 0);
+    io->SetPosition(baseAddress, (DWORD)0);
     GdfxReadHeader(io, &header);
 
-    if (readFileListing)
-        GetFileListing();
+    // read the file listing
+    ReadFileListing(&root, header.rootSector, header.rootSize, "/");
 }
 
 SVOD::~SVOD()
@@ -95,22 +53,23 @@ SVOD::~SVOD()
 
 void SVOD::Resign(string kvPath)
 {
-    if (metaData->magic != CON)
+    if (metadata->magic != CON)
         throw string("SVOD: Can only resign console systems.\n");
-    metaData->ResignHeader(kvPath);
+    metadata->ResignHeader(kvPath);
 }
 
 void SVOD::SectorToAddress(DWORD sector, DWORD *addressInDataFile, DWORD *dataFileIndex)
 {
-    DWORD trueSector = (sector - (metaData->svodVolumeDescriptor.dataBlockOffset * 2)) % 0x14388;
+    DWORD trueSector = (sector - (metadata->svodVolumeDescriptor.dataBlockOffset * 2)) % 0x14388;
     *addressInDataFile = trueSector * 0x800;
-    *dataFileIndex = (sector - (metaData->svodVolumeDescriptor.dataBlockOffset * 2)) / 0x14388;
+    *dataFileIndex = (sector - (metadata->svodVolumeDescriptor.dataBlockOffset * 2)) / 0x14388;
 
     // for the silly stuff at the beginning
     *addressInDataFile += offset;
 
     // for the data hash table(s)
-    *addressInDataFile += ((trueSector / 0x198) + ((trueSector % 0x198 == 0 && trueSector != 0) ? 0 : 1)) * 0x1000;
+    *addressInDataFile += ((trueSector / 0x198) + ((trueSector % 0x198 == 0 &&
+            trueSector != 0) ? 0 : 1)) * 0x1000;
 }
 
 void SVOD::ReadFileListing(vector<GdfxFileEntry> *entryList, DWORD sector, int size, string path)
@@ -121,14 +80,8 @@ void SVOD::ReadFileListing(vector<GdfxFileEntry> *entryList, DWORD sector, int s
 
     GdfxFileEntry current;
 
-    while (true)
+    while (GdfxReadFileEntry(io, &current) && size != 0)
     {
-        io->GetPosition(&current.address, &current.fileIndex);
-
-        // make sure we're not at the end of the file listing
-        if (!GdfxReadFileEntry(io, &current) && size != 0)
-            break;
-
         // if it's a folder, then seek to it and read it's contents
         if (current.attributes & GdfxDirectory)
         {
@@ -156,8 +109,7 @@ void SVOD::ReadFileListing(vector<GdfxFileEntry> *entryList, DWORD sector, int s
         {
             if ((size - 0x800) <= 0)
             {
-                // sort the file entries so that directories are first
-                std::sort(entryList->begin(), entryList->end(), DirectoryFirstCompareGdfxEntries);
+                std::sort(entryList->begin(), entryList->end(), compareFileEntries);
                 return;
             }
             else
@@ -178,7 +130,7 @@ void SVOD::ReadFileListing(vector<GdfxFileEntry> *entryList, DWORD sector, int s
         current.files.clear();
     }
 
-    std::sort(entryList->begin(), entryList->end(), DirectoryFirstCompareGdfxEntries);
+    std::sort(entryList->begin(), entryList->end(), compareFileEntries);
 }
 
 GdfxFileEntry SVOD::GetFileEntry(string path, vector<GdfxFileEntry> *listing)
@@ -198,7 +150,7 @@ GdfxFileEntry SVOD::GetFileEntry(string path, vector<GdfxFileEntry> *listing)
                 break;
         }
     }
-    
+
     return GetFileEntry(path.substr(entryName.length() + 1), &listing->at(i).files);
 }
 
@@ -209,7 +161,7 @@ SvodIO SVOD::GetSvodIO(string path)
 
 SvodIO SVOD::GetSvodIO(GdfxFileEntry entry)
 {
-    return SvodIO(metaData, entry, io);
+    return SvodIO(metadata, entry, io);
 }
 
 void SVOD::Rehash(void (*progress)(DWORD, DWORD, void*), void *arg)
@@ -273,34 +225,31 @@ void SVOD::Rehash(void (*progress)(DWORD, DWORD, void*), void *arg)
     }
 
     // update the root hash
-    memcpy(metaData->svodVolumeDescriptor.rootHash, prevHash, 0x14);
-    metaData->WriteVolumeDescriptor();
+    memcpy(metadata->svodVolumeDescriptor.rootHash, prevHash, 0x14);
+    metadata->WriteVolumeDescriptor();
 
-    DWORD dataLen = ((metaData->headerSize + 0xFFF) & 0xFFFFF000) - 0x344;
+    DWORD dataLen = ((metadata->headerSize + 0xFFF) & 0xFFFFF000) - 0x344;
     BYTE *buff = new BYTE[dataLen];
 
     rootFile->SetPosition(0x344);
     rootFile->ReadBytes(buff, dataLen);
 
-    Botan::SHA_160 sha1;
-    sha1.clear();
-    sha1.update(buff, dataLen);
-    sha1.final(metaData->headerHash);
+    const auto sha1 = Botan::HashFunction::create_or_throw("SHA-1");
+    sha1->update(buff, dataLen);
+    sha1->final(metadata->headerHash);
 
-    metaData->WriteMetaData();
+    metadata->WriteMetaData();
 }
 
 void SVOD::HashBlock(BYTE *block, BYTE *outHash)
 {
-    Botan::SHA_160 sha1;
-    sha1.clear();
-    sha1.update(block, 0x1000);
-    sha1.final(outHash);
+    const auto sha1 = Botan::HashFunction::create_or_throw("SHA-1");
+    sha1->update(block, 0x1000);
+    sha1->final(outHash);
 }
 
 void SVOD::WriteFileEntry(GdfxFileEntry *entry)
 {
-    io->SetPosition(entry->address, entry->fileIndex);
     GdfxWriteFileEntry(io, entry);
 }
 
@@ -312,21 +261,7 @@ DWORD SVOD::GetSectorCount()
     return (io->FileCount() * 0x14388) + ((fileLen - (0x1000 * (fileLen / 0xCD000))) / 0x800);
 }
 
-std::string SVOD::GetContentName()
+int compareFileEntries(GdfxFileEntry a, [[maybe_unused]] GdfxFileEntry b)
 {
-    std::string headerHashBeginning = Utils::ConvertToHexString(metaData->headerHash, 16);
-    std::string firstByteOfTitleID = Utils::ConvertToHexString((metaData->titleID >> 24) & 0xFF);
-
-    return headerHashBeginning + firstByteOfTitleID;
+    return !(a.attributes & GdfxDirectory);
 }
-
-void SVOD::GetFileListing()
-{
-    if (!didReadFileListing)
-    {
-        didReadFileListing = true;
-        ReadFileListing(&root, header.rootSector, header.rootSize, "/");
-    }
-}
-
-

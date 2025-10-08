@@ -1,7 +1,7 @@
 #pragma once
 
-#include "winnames.h"
-#include "Gpd/XdbfDefininitions.h"
+#include "TypeDefinitions.h"
+#include "Gpd/XdbfDefinitions.h"
 #include <iostream>
 #include <time.h>
 
@@ -25,8 +25,12 @@ public:
 
     static unsigned int FILETIMEtoMilliseconds(WINFILETIME time);
 
+    static unsigned int FILETIMEtoMilliseconds(WINFILETIME time);
+
     static WINFILETIME TimeTtoFILETIME(time_t time);
     
+    static WINFILETIME TimeTtoFILETIME(time_t time, unsigned int milliseconds);
+
     static WINFILETIME TimeTtoFILETIME(time_t time, unsigned int milliseconds);
 
     static WINFILETIME TimeTtoFILETIME(time_t time, unsigned int milliseconds);
