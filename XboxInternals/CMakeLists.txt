@@ -13,9 +13,15 @@ add_library(XboxInternals ${_lib_type}
   Cryptography/XeCrypt.cpp
   Cryptography/XeKeys.cpp
   Disc/Gdfx.cpp
+  Disc/ISO.cpp
   Disc/Svod.cpp
   Fatx/FatxDrive.cpp
   Fatx/FatxDriveDetection.cpp
+  Fatx/XContentDevice.cpp
+  Fatx/XContentDeviceItem.cpp
+  Fatx/XContentDeviceProfile.cpp
+  Fatx/XContentDeviceSharedItem.cpp
+  Fatx/XContentDeviceTitle.cpp
   Gpd/AvatarAwardGpd.cpp
   Gpd/DashboardGpd.cpp
   Gpd/GameGpd.cpp
@@ -24,15 +30,25 @@ add_library(XboxInternals ${_lib_type}
   Gpd/XdbfHelpers.cpp
   IO/BaseIO.cpp
   IO/DeviceIO.cpp
+  IO/FatxIndexableMultiFileIO.cpp
   IO/FatxIO.cpp
   IO/FileIO.cpp
+  IO/IndexableMultiFileIO.cpp
+  IO/IsoIO.cpp
+  IO/JoinedMultiFileIO.cpp
+  IO/LocalIndexableMultiFileIO.cpp
   IO/MemoryIO.cpp
-  IO/MultiFileIO.cpp
+  IO/StfsIO.cpp
   IO/SvodIO.cpp
-  IO/SvodMultiFileIO.cpp
+  IO/XexAesIO.cpp
+  IO/XexBaseIO.cpp
+  IO/XexZeroBasedCompressionIO.cpp
+  Stfs/IXContentHeader.cpp
   Stfs/StfsDefinitions.cpp
   Stfs/StfsPackage.cpp
   Stfs/XContentHeader.cpp
+  Xex/Xex.cpp
+  Xex/Xuiz.cpp
 )
 
 target_include_directories(XboxInternals
