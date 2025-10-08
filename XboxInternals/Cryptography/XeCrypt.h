@@ -1,13 +1,11 @@
 #ifndef XECRYPT_H
 #define XECRYPT_H
 
-#include "winnames.h"
+#include "TypeDefinitions.h"
 #include <iostream>
 #include <string.h>
 
-#include <botan/bigint.h>
-#include <botan/rsa.h>
-#include <botan/pubkey.h>
+#include <botan_all.h>
 
 #include "XboxInternals_global.h"
 

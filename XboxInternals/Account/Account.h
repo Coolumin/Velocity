@@ -5,12 +5,11 @@
 #include <stdio.h>
 #include "IO/FileIO.h"
 #include "Account/AccountDefinitions.h"
-#include "Gpd/XdbfDefininitions.h"
+#include "Gpd/XdbfDefinitions.h"
 #include "Stfs/StfsConstants.h"
 
 // botan
-#include <botan/mac.h>
-#include <botan/stream_cipher.h>
+#include <botan_all.h>
 
 #include "XboxInternals_global.h"
 
